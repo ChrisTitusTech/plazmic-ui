@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import http.client
 import importlib.util
+import json
 import os
 import shutil
 import subprocess
@@ -292,6 +293,64 @@ class UiStudioTests(unittest.TestCase):
                 b"[PlayerWindow]\r\nAlpha=255\r\n[PlayerWindow]\r\nAlpha=200\r\n",
             )
 
+    def test_layout_batch_update_is_atomic_and_preserves_unselected_sections(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            layout = root / "UI_example.ini"
+            layout.write_bytes(
+                b"[ChatWindow]\r\nXPos=1.000000%\r\nWidth=200\r\n"
+                b"[MapWindow]\r\nXPos=2.000000%\r\nWidth=300\r\n"
+                b"[InventoryWindow]\r\nCustomSetting=keep\r\n"
+            )
+            updates = ui_studio.validated_layout_sections(
+                [
+                    {
+                        "section": "ChatWindow",
+                        "settings": {"XPos": "3%", "Width": "240"},
+                    },
+                    {
+                        "section": "MapWindow",
+                        "settings": {"XPos": "4%", "Width": "240"},
+                    },
+                ]
+            )
+
+            backup = ui_studio.update_ini_sections(
+                layout,
+                updates,
+                root / "backups",
+            )
+
+            self.assertIsNotNone(backup)
+            self.assertEqual(len(list((root / "backups" / layout.name).glob("*.bak"))), 1)
+            self.assertEqual(
+                layout.read_bytes(),
+                b"[ChatWindow]\r\nXPos=3.000000%\r\nWidth=240\r\n"
+                b"[MapWindow]\r\nXPos=4.000000%\r\nWidth=240\r\n"
+                b"[InventoryWindow]\r\nCustomSetting=keep\r\n",
+            )
+
+            with self.assertRaisesRegex(ValueError, "duplicated in the request"):
+                ui_studio.validated_layout_sections(
+                    [
+                        {"section": "ChatWindow", "settings": {"Width": "200"}},
+                        {"section": "ChatWindow", "settings": {"Width": "220"}},
+                    ]
+                )
+
+            saved_contents = layout.read_bytes()
+            with self.assertRaisesRegex(ValueError, "MissingWindow.*found 0"):
+                ui_studio.update_ini_sections(
+                    layout,
+                    {
+                        "ChatWindow": {"Width": "260"},
+                        "MissingWindow": {"Width": "260"},
+                    },
+                    root / "backups",
+                )
+            self.assertEqual(layout.read_bytes(), saved_contents)
+            self.assertEqual(len(list((root / "backups" / layout.name).glob("*.bak"))), 1)
+
     def test_anchor_conversion_round_trips(self) -> None:
         for reference in ("left", "center", "right"):
             position = ui_studio.anchored_position(reference, 13.25, 336, 2560)
@@ -535,6 +594,28 @@ class UiStudioTests(unittest.TestCase):
                 self.assertEqual(response.status, 200)
                 self.assertIn("default-src 'self'", response.getheader("Content-Security-Policy"))
                 self.assertIn(b'"width": 1920', response.read())
+
+                body = json.dumps(
+                    {
+                        "sections": [
+                            {"section": "Main", "settings": {"Alpha": "200"}},
+                        ]
+                    }
+                ).encode("ascii")
+                connection.request(
+                    "POST",
+                    "/api/layout",
+                    body=body,
+                    headers={
+                        "X-Plazmic-Token": server.token,
+                        "Origin": server.origin,
+                        "Content-Type": "application/json",
+                    },
+                )
+                response = connection.getresponse()
+                self.assertEqual(response.status, 200)
+                self.assertIn(b'"ok": true', response.read())
+                self.assertEqual(layout.read_bytes(), b"[Main]\nAlpha=200\n")
 
                 connection.request(
                     "GET",

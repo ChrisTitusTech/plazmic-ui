@@ -70,6 +70,17 @@ with the current in-browser state for every sibling window. This keeps unsaved
 sibling placements from jumping back while retaining the saved section as the
 server-authoritative result.
 
+Multi-selection keeps a stable primary window for inspector values and group
+layout references. Group drag snaps the primary once and applies the same pixel
+delta to every selected window, preserving relative offsets. Match, align, and
+distribution operations run in the same frontend model as single-window
+geometry, then convert each result back to its own anchor percentages.
+
+The batch layout endpoint accepts a bounded list of unique section updates,
+validates every setting before writing, verifies every named section appears
+exactly once, and performs one atomic replacement with one backup. A validation
+failure leaves the source layout untouched.
+
 ## XML model
 
 The formatter changes line endings, indentation, and trailing whitespace only.

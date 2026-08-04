@@ -130,13 +130,23 @@ in ignored local configuration.
   dragging to bypass snapping temporarily.
 - Drag the lower-right handle to update width and height; Alt also bypasses
   snapping while resizing.
+- Shift-click windows on the canvas or in the list to build a group. The first
+  window remains the primary reference and keeps the stronger outline.
+- Drag any selected window to move the entire group without changing its
+  internal spacing.
+- Use **Match size** to copy the primary width and height, or **Align left** and
+  **Align top** to copy the corresponding primary edge.
+- With three or more selected windows, use **Space across** or **Space down**
+  to distribute the windows with equal gaps across their current outer span.
 - Edit anchors, percentage positions, size, alpha, fade alpha, background type,
   tint, visibility, lock, and fade values in the right inspector.
 - Click **Save window settings** to replace only supported keys in that section.
+- Click **Save selected** to persist the full group through one atomic layout
+  replacement and one backup.
 
 Saving one window keeps unsaved placements for the other windows visible on the
 canvas. Those placements remain browser-only until each window is selected and
-saved separately.
+saved separately or included in **Save selected**.
 
 Unknown sections, keys, comments, encoding, and CRLF/LF newline style are
 preserved. Each save creates an ignored backup before atomic replacement.

@@ -201,3 +201,46 @@ alignment during drag and resize operations.
 Revert the frontend model and controls. No workspace migration or INI rollback
 is required because the new controls do not write until the existing save
 action is used.
+
+## Phase 6: Multi-window layout tools
+
+### Outcome
+
+Authors can select a group of mock windows and normalize their size, alignment,
+or spacing without manually editing each set of coordinates.
+
+### Included work
+
+- Add Shift-click multi-selection on the canvas and layout list with a stable
+  primary selection for the inspector.
+- Move selected windows as one group while preserving relative spacing.
+- Match size, align left or top, and distribute horizontally or vertically.
+- Save all selected sections through one validated atomic INI update.
+
+### Dependencies and risks
+
+- Group actions change in-browser geometry for multiple windows; the action
+  names and primary reference must remain explicit.
+- Equal distribution can retain overlap when the selected bounding span is
+  smaller than the combined window dimensions.
+
+### Exit criteria
+
+- AC-13 passes deterministic geometry, batch-save, and browser interaction
+  tests.
+- A visible synthetic-data capture demonstrates group selection and tools.
+- The complete gate and independent review pass on the final diff.
+
+### Validation
+
+- Exercise Shift-add, Shift-remove, primary selection, group drag, and filtered
+  selection rendering.
+- Verify match-size, align, and both distribution algorithms with mixed sizes.
+- Verify batch save creates one backup and changes only selected INI sections.
+- Run `make check`, packaged Linux diagnostics, and a 1920x1080 browser smoke.
+
+### Rollback
+
+Revert the group-selection frontend, model helpers, and batch endpoint. Existing
+single-window saves and backups remain compatible; no workspace migration is
+required.

@@ -41,6 +41,79 @@
     };
   }
 
+  function applyGroupDrag(startWindows, primarySection, dx, dy, options = {}) {
+    const primary = startWindows.find(
+      (windowData) => windowData.section === primarySection,
+    );
+    if (!primary) throw new Error("primary window is not selected");
+    const movedPrimary = applyDrag(primary, dx, dy, {
+      ...options,
+      resize: false,
+    });
+    const movedX = movedPrimary.x - primary.x;
+    const movedY = movedPrimary.y - primary.y;
+    return startWindows.map((windowData) => ({
+      ...windowData,
+      x: windowData.x + movedX,
+      y: windowData.y + movedY,
+    }));
+  }
+
+  function applyGroupLayout(windows, selectedSections, primarySection, action) {
+    const selected = new Set(selectedSections);
+    const group = windows.filter((windowData) => selected.has(windowData.section));
+    if (group.length < 2) return windows;
+    const primary = group.find((windowData) => windowData.section === primarySection) || group[0];
+    const updates = new Map();
+
+    if (action === "match-size") {
+      for (const windowData of group) {
+        updates.set(windowData.section, {
+          width: primary.width,
+          height: primary.height,
+        });
+      }
+    } else if (action === "align-left") {
+      for (const windowData of group) updates.set(windowData.section, { x: primary.x });
+    } else if (action === "align-top") {
+      for (const windowData of group) updates.set(windowData.section, { y: primary.y });
+    } else if (action === "distribute-horizontal") {
+      const ordered = [...group].sort(
+        (left, right) => left.x - right.x || left.section.localeCompare(right.section),
+      );
+      const start = Math.min(...ordered.map((windowData) => windowData.x));
+      const end = Math.max(...ordered.map((windowData) => windowData.x + windowData.width));
+      const content = ordered.reduce((total, windowData) => total + windowData.width, 0);
+      const gap = (end - start - content) / (ordered.length - 1);
+      let cursor = start;
+      for (const windowData of ordered) {
+        updates.set(windowData.section, { x: cursor });
+        cursor += windowData.width + gap;
+      }
+    } else if (action === "distribute-vertical") {
+      const ordered = [...group].sort(
+        (top, bottom) => top.y - bottom.y || top.section.localeCompare(bottom.section),
+      );
+      const start = Math.min(...ordered.map((windowData) => windowData.y));
+      const end = Math.max(...ordered.map((windowData) => windowData.y + windowData.height));
+      const content = ordered.reduce((total, windowData) => total + windowData.height, 0);
+      const gap = (end - start - content) / (ordered.length - 1);
+      let cursor = start;
+      for (const windowData of ordered) {
+        updates.set(windowData.section, { y: cursor });
+        cursor += windowData.height + gap;
+      }
+    } else {
+      throw new Error(`unknown group layout action: ${action}`);
+    }
+
+    return windows.map((windowData) =>
+      updates.has(windowData.section)
+        ? { ...windowData, ...updates.get(windowData.section) }
+        : windowData,
+    );
+  }
+
   function isWindowDisplayed(windowData, filter, showHidden) {
     if (!windowData.visible && !showHidden) return false;
     return String(windowData.section)
@@ -48,21 +121,29 @@
       .includes(String(filter || "").toLowerCase());
   }
 
-  function mergeAfterSectionSave(currentWindows, loadedWindows, savedSection) {
+  function mergeAfterSectionsSave(currentWindows, loadedWindows, savedSections) {
     const currentBySection = new Map(
       currentWindows.map((windowData) => [windowData.section, windowData]),
     );
+    const saved = new Set(savedSections);
     return loadedWindows.map((windowData) =>
-      windowData.section === savedSection
+      saved.has(windowData.section)
         ? windowData
         : currentBySection.get(windowData.section) || windowData,
     );
   }
 
+  function mergeAfterSectionSave(currentWindows, loadedWindows, savedSection) {
+    return mergeAfterSectionsSave(currentWindows, loadedWindows, [savedSection]);
+  }
+
   const model = Object.freeze({
     applyDrag,
+    applyGroupDrag,
+    applyGroupLayout,
     isWindowDisplayed,
     mergeAfterSectionSave,
+    mergeAfterSectionsSave,
     snapValue,
   });
   root.PlazmicStudioModel = model;

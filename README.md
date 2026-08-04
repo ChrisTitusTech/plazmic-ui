@@ -24,6 +24,8 @@ other Daybreak asset. All copied game files stay in ignored local workspaces.
   tint.
 - Filters the layout list and mock canvas together so unrelated windows stay
   out of the way while editing.
+- Supports Shift-click groups, shared movement, matching sizes, edge alignment,
+  equal spacing, and one atomic save for every selected window.
 - Opens and validates top-level EQ interface XML without a web dependency or
   external service.
 - Preserves unrelated INI content and creates timestamped backups before every

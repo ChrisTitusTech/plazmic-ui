@@ -5,6 +5,19 @@ skipped live checks and residual risk rather than marking them complete.
 
 ## Current phase
 
+### S-03: Add multi-window layout tools
+
+- [x] Add Shift-click multi-selection with a stable primary window.
+- [x] Move groups without changing their internal spacing.
+- [x] Add match-size, align-left/top, and equal-spacing actions.
+- [x] Save selected sections atomically with one backup.
+- [x] Add model, API, browser, documentation, and packaged-app validation.
+- Acceptance criteria: AC-13 and the Phase 6 exit criteria.
+- Automated validation: frontend geometry tests, batch INI tests, API tests,
+  JavaScript syntax, Python tests, and `make check`.
+- Manual validation: exercise group tools at 1920x1080 against synthetic data
+  and retain an ignored public-safe screenshot under `captures/`.
+
 ### S-02: Improve Studio layout interactions
 
 - [x] Hide nonmatching mock windows when the layout list is filtered.
@@ -102,3 +115,13 @@ The follow-up review found one minor snap-selector validation gap, which was
 fixed and covered by the complete gate. A final confirmation review was
 rate-limited; targeted browser regression, syntax, static, hygiene, and full
 test gates passed on the exact staged diff.
+
+Multi-window layout tools now support Shift-click selection from list or
+canvas, stable-primary group movement, size matching, top/left alignment, equal
+horizontal/vertical spacing, and atomic Save selected updates. The 1920x1080
+synthetic browser workflow passed and is retained in ignored
+`captures/plazmic-ui-studio-multi-select.png`; 27 Python tests, 10 frontend
+model tests, the complete source gate, and the packaged Linux diagnostic pass.
+CodeRabbit was rate-limited for this follow-up, so the exact staged diff
+received focused geometry, API, rollback, workflow, secret, and whitespace
+review locally instead.

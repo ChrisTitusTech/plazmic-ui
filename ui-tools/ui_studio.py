@@ -210,34 +210,33 @@ def parse_ini(contents: bytes) -> dict[str, dict[str, str]]:
     return sections
 
 
-def update_ini_section(
+def update_ini_sections(
     path: Path,
-    section: str,
-    updates: dict[str, str],
+    section_updates: dict[str, dict[str, str]],
     backup_root: Path,
 ) -> Path | None:
+    if not section_updates:
+        raise ValueError("at least one layout section is required")
     source = path.read_bytes()
     newline = b"\r\n" if b"\r\n" in source else b"\n"
     text = source.decode("latin-1")
     lines = text.splitlines(keepends=True)
-    section_count = sum(
-        1
-        for line in lines
-        if (match := SECTION_PATTERN.match(line.rstrip("\r\n"))) and match.group(1) == section
-    )
-    if section_count != 1:
-        raise ValueError(
-            f"layout section must appear exactly once: {section} (found {section_count})"
-        )
+    section_counts = dict.fromkeys(section_updates, 0)
+    for line in lines:
+        match = SECTION_PATTERN.match(line.rstrip("\r\n"))
+        if match and match.group(1) in section_counts:
+            section_counts[match.group(1)] += 1
+    for section, count in section_counts.items():
+        if count != 1:
+            raise ValueError(f"layout section must appear exactly once: {section} (found {count})")
     output: list[bytes] = []
     current: str | None = None
-    found = False
     seen: set[str] = set()
 
     def finish_current() -> None:
-        if current != section:
+        if current not in section_updates:
             return
-        for key, value in updates.items():
+        for key, value in section_updates[current].items():
             if key not in seen:
                 if output and not output[-1].endswith((b"\n", b"\r")):
                     output[-1] += newline
@@ -249,23 +248,29 @@ def update_ini_section(
         if section_match:
             finish_current()
             current = section_match.group(1)
-            found = found or current == section
             seen = set()
             output.append(line.encode("latin-1"))
             continue
         key_match = KEY_PATTERN.match(plain)
-        if current == section and key_match:
+        if current in section_updates and key_match:
             key = key_match.group(1)
             seen.add(key)
-            if key in updates:
-                output.append(f"{key}={updates[key]}".encode("latin-1") + newline)
+            if key in section_updates[current]:
+                output.append(f"{key}={section_updates[current][key]}".encode("latin-1") + newline)
                 continue
         output.append(line.encode("latin-1"))
 
     finish_current()
-    if not found:
-        raise ValueError(f"layout section does not exist: {section}")
     return atomic_write(path, b"".join(output), backup_root)
+
+
+def update_ini_section(
+    path: Path,
+    section: str,
+    updates: dict[str, str],
+    backup_root: Path,
+) -> Path | None:
+    return update_ini_sections(path, {section: updates}, backup_root)
 
 
 def percent_value(value: str, default: float = 0.0) -> float:
@@ -431,6 +436,24 @@ def validated_settings(raw: Any) -> dict[str, str]:
                 raise ValueError("BGType must be between 0 and 3")
             text = str(number)
         result[key] = text
+    return result
+
+
+def validated_layout_sections(raw: Any) -> dict[str, dict[str, str]]:
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("sections must be a nonempty array")
+    if len(raw) > 256:
+        raise ValueError("no more than 256 sections may be saved at once")
+    result: dict[str, dict[str, str]] = {}
+    for item in raw:
+        if not isinstance(item, dict):
+            raise ValueError("each section update must be an object")
+        section = str(item.get("section", ""))
+        if not section or any(character in section for character in "[]\r\n"):
+            raise ValueError("section name is invalid")
+        if section in result:
+            raise ValueError(f"layout section is duplicated in the request: {section}")
+        result[section] = validated_settings(item.get("settings"))
     return result
 
 
@@ -858,14 +881,22 @@ class StudioHandler(BaseHTTPRequestHandler):
             body = self._body()
             with self.server.write_lock:
                 if self.path == "/api/layout":
-                    section = str(body.get("section", ""))
-                    settings = validated_settings(body.get("settings"))
-                    update_ini_section(
-                        self.server.paths.layout,
-                        section,
-                        settings,
-                        self.server.paths.backups,
-                    )
+                    if "sections" in body:
+                        updates = validated_layout_sections(body.get("sections"))
+                        update_ini_sections(
+                            self.server.paths.layout,
+                            updates,
+                            self.server.paths.backups,
+                        )
+                    else:
+                        section = str(body.get("section", ""))
+                        settings = validated_settings(body.get("settings"))
+                        update_ini_section(
+                            self.server.paths.layout,
+                            section,
+                            settings,
+                            self.server.paths.backups,
+                        )
                     self._json({"ok": True, "state": layout_state(self.server.paths)})
                     return
                 if self.path == "/api/xml":

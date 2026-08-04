@@ -48,6 +48,13 @@ game process, or a patched skin whose XML differs from the reviewed baseline.
   fade, lock, background type, and tint fields.
 - Snap drag and resize operations to a selectable 4, 8, 16, or 32 pixel grid,
   defaulting to 8 pixels, with a visible toggle and temporary Alt-key bypass.
+- Select multiple windows with Shift-click from the canvas or list, retain one
+  primary selection for the inspector, and move the selected group without
+  changing its internal spacing.
+- Make selected windows consistent through explicit match-size, edge-alignment,
+  and equal horizontal or vertical distribution actions.
+- Save every selected window in one atomic INI replacement and one backup while
+  preserving unrelated sections and unsaved nonselected browser state.
 - Preserve unrelated INI sections, keys, comments, byte encoding, and newline
   style when saving one section.
 - Preserve unsaved in-browser positions and sizes for every other window when
@@ -180,6 +187,9 @@ renders the editor; it has no build step and no external network dependency.
   and enabled move/resize snapping follows the selected grid while disabled or
   Alt-bypassed dragging remains unsnapped. Saving one section does not reset
   unsaved canvas changes for other windows.
+- AC-13: Shift-click multi-selection works from canvas and list, group dragging
+  preserves relative offsets, group layout actions produce deterministic
+  geometry, and one batch save persists all selected sections atomically.
 
 ## Resolved decisions
 

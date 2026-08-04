@@ -56,10 +56,12 @@ No fixture comes from EverQuest. Coverage includes:
 - capture filters and symlink rejection;
 - XML/settings validation;
 - transactional publish rollback;
-- Host, token, Origin, and body-size server checks; and
+- Host, token, Origin, and body-size server checks;
 - CLI dispatch and shell failure paths;
-- shared window filtering for the list and mock canvas; and
-- snapped move/resize geometry, disabled snapping, and Alt bypass behavior.
+- shared window filtering for the list and mock canvas;
+- snapped move/resize geometry, disabled snapping, and Alt bypass behavior;
+- multi-window drag, size, alignment, and distribution geometry; and
+- atomic multi-section INI updates and request validation.
 
 Add a regression test for every behavior fix. Prefer a temporary filesystem
 over mocks; use a narrow mock only to force an otherwise impractical failure.
@@ -80,10 +82,13 @@ Verify at minimum:
 3. Selection works from the list and canvas.
 4. Drag and resize snap at every grid size; disabling Snap or holding Alt
    allows free positioning.
-5. Field editing and save create a backup.
-6. XML open, invalid-save rejection, and valid save work.
-7. Publish confirmation names the selected target.
-8. A 1920x1080 screenshot contains no personal path or character data.
+5. Shift-click selects and removes group members from both list and canvas.
+6. Group drag, match size, align, spacing, and Save selected work without
+   changing an unselected window.
+7. Field editing and save create a backup.
+8. XML open, invalid-save rejection, and valid save work.
+9. Publish confirmation names the selected target.
+10. A 1920x1080 screenshot contains no personal path or character data.
 
 ## Review and release gate
 

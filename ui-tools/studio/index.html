@@ -49,7 +49,16 @@
               <option value="32">32 px</option>
             </select>
           </div>
-          <span class="stage-help">Drag to move. Drag the corner to resize. Hold Alt for free movement.</span>
+          <span class="stage-help">Shift-click to select multiple. Drag to move. Hold Alt for free movement.</span>
+        </div>
+        <div id="group-tools" class="group-tools" hidden>
+          <strong id="selection-count">2 selected</strong>
+          <button type="button" data-group-action="match-size">Match size</button>
+          <button type="button" data-group-action="align-left">Align left</button>
+          <button type="button" data-group-action="align-top">Align top</button>
+          <button type="button" data-group-action="distribute-horizontal">Space across</button>
+          <button type="button" data-group-action="distribute-vertical">Space down</button>
+          <button id="save-selected" class="primary" type="button">Save selected</button>
         </div>
         <div id="stage-shell">
           <div id="stage" aria-label="Mock EverQuest window layout canvas"></div>
@@ -83,7 +92,7 @@
             <label><input id="fades" type="checkbox"> Fades</label>
           </div>
           <button id="save-window" class="primary full" type="button">Save window settings</button>
-          <p class="hint">Saving updates only this INI section and creates a local backup.</p>
+          <p class="hint">This saves only the primary window. Use Save selected for the full group.</p>
         </section>
 
         <section id="xml-panel" class="tab-panel">

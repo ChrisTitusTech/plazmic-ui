@@ -5,6 +5,7 @@ const studioModel = globalThis.PlazmicStudioModel;
 const state = {
   data: null,
   selected: null,
+  selectedSections: new Set(),
   drag: null,
   filter: "",
   showHidden: false,
@@ -26,7 +27,12 @@ const fields = {
   locked: document.querySelector("#locked"),
   fades: document.querySelector("#fades"),
 };
-const mutationControls = ["#save-window", "#save-xml", "#publish-button"].map((selector) => document.querySelector(selector));
+const editableSettingKeys = new Set([
+  "XRef", "YRef", "XPos", "YPos", "Width", "Height", "Alpha",
+  "FadeToAlpha", "Fades", "Locked", "Show", "BGType", "BGTint.red",
+  "BGTint.green", "BGTint.blue",
+]);
+const mutationControls = [...document.querySelectorAll("#save-window, #save-xml, #publish-button, #group-tools button")];
 let mutationActive = false;
 
 async function api(path, options = {}) {
@@ -47,6 +53,10 @@ function status(message, kind = "") {
 
 function selectedWindow() {
   return state.data?.windows.find((window) => window.section === state.selected) || null;
+}
+
+function selectedWindows() {
+  return state.data?.windows.filter((window) => state.selectedSections.has(window.section)) || [];
 }
 
 function numeric(value, fallback) {
@@ -73,6 +83,7 @@ function beginMutation() {
 function endMutation() {
   mutationActive = false;
   for (const control of mutationControls) control.disabled = false;
+  updateGroupControls();
 }
 
 function updateSelectedFromFields() {
@@ -126,7 +137,7 @@ function setPixelPosition(window) {
   window.y = window.values.YRef === "bottom" ? screen.height - yOffset - window.height : window.values.YRef === "center" ? screen.height / 2 + yOffset - window.height / 2 : yOffset;
 }
 
-function setPercentPosition(window) {
+function setPercentPosition(window, updateFields = true) {
   const screen = state.data.screen;
   let x;
   let y;
@@ -138,10 +149,22 @@ function setPercentPosition(window) {
   else y = window.y * 100 / screen.height;
   window.values.XPos = `${x.toFixed(6)}%`;
   window.values.YPos = `${y.toFixed(6)}%`;
-  fields.xPos.value = x.toFixed(4);
-  fields.yPos.value = y.toFixed(4);
-  fields.width.value = Math.round(window.width);
-  fields.height.value = Math.round(window.height);
+  window.values.Width = String(Math.round(window.width));
+  window.values.Height = String(Math.round(window.height));
+  if (updateFields) {
+    fields.xPos.value = x.toFixed(4);
+    fields.yPos.value = y.toFixed(4);
+    fields.width.value = Math.round(window.width);
+    fields.height.value = Math.round(window.height);
+  }
+}
+
+function editableSettings(window) {
+  return Object.fromEntries(
+    Object.entries(window.values).filter(
+      ([key, value]) => value !== "" && editableSettingKeys.has(key),
+    ),
+  );
 }
 
 function colorFor(name) {
@@ -154,6 +177,14 @@ function isWindowDisplayed(window) {
   return studioModel.isWindowDisplayed(window, state.filter, state.showHidden);
 }
 
+function updateMockWindowGeometry(element, window) {
+  const screen = state.data.screen;
+  element.style.left = `${window.x * 100 / screen.width}%`;
+  element.style.top = `${window.y * 100 / screen.height}%`;
+  element.style.width = `${window.width * 100 / screen.width}%`;
+  element.style.height = `${window.height * 100 / screen.height}%`;
+}
+
 function renderStage() {
   const stage = document.querySelector("#stage");
   stage.replaceChildren();
@@ -162,12 +193,9 @@ function renderStage() {
   for (const [index, window] of state.data.windows.entries()) {
     if (!isWindowDisplayed(window)) continue;
     const element = document.createElement("div");
-    element.className = `mock-window${window.section === state.selected ? " selected" : ""}${window.visible ? "" : " hidden-window"}`;
+    element.className = `mock-window${window.section === state.selected ? " selected" : ""}${state.selectedSections.has(window.section) ? " group-selected" : ""}${window.visible ? "" : " hidden-window"}`;
     element.dataset.section = window.section;
-    element.style.left = `${window.x * 100 / screen.width}%`;
-    element.style.top = `${window.y * 100 / screen.height}%`;
-    element.style.width = `${window.width * 100 / screen.width}%`;
-    element.style.height = `${window.height * 100 / screen.height}%`;
+    updateMockWindowGeometry(element, window);
     element.style.opacity = String(Math.max(0.18, numeric(window.values.Alpha, 255) / 255));
     element.style.zIndex = String(index + 1);
     element.style.setProperty("--window-color", colorFor(window.section));
@@ -193,10 +221,11 @@ function renderList() {
     if (!isWindowDisplayed(window)) continue;
     const button = document.createElement("button");
     button.textContent = window.section;
-    button.className = `${window.section === state.selected ? "active" : ""}${window.visible ? "" : " hidden-window"}`;
+    button.className = `${window.section === state.selected ? "active" : ""}${state.selectedSections.has(window.section) ? " group-selected" : ""}${window.visible ? "" : " hidden-window"}`;
     button.type = "button";
     button.setAttribute("aria-current", window.section === state.selected ? "true" : "false");
-    button.addEventListener("click", () => selectWindow(window.section));
+    button.setAttribute("aria-pressed", state.selectedSections.has(window.section) ? "true" : "false");
+    button.addEventListener("click", (event) => handleWindowSelection(window.section, event.shiftKey));
     list.append(button);
   }
 }
@@ -206,8 +235,20 @@ function rgb(values) {
   return `#${channels.map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
 }
 
-function selectWindow(section, renderCanvas = true) {
+function updateGroupControls() {
+  const count = state.selectedSections.size;
+  const tools = document.querySelector("#group-tools");
+  tools.hidden = count < 2;
+  document.querySelector("#selection-count").textContent = `${count} selected`;
+  for (const button of tools.querySelectorAll("[data-group-action^='distribute-']")) {
+    button.disabled = count < 3 || mutationActive;
+  }
+}
+
+function selectWindow(section, renderCanvas = true, resetSelection = true) {
   state.selected = section;
+  if (resetSelection) state.selectedSections = new Set([section]);
+  else state.selectedSections.add(section);
   const window = selectedWindow();
   if (!window) return;
   document.querySelector("#selected-name").textContent = section;
@@ -228,14 +269,40 @@ function selectWindow(section, renderCanvas = true) {
     document.querySelector("#xml-file").value = window.xmlFile;
     loadXml(window.xmlFile);
   }
+  updateGroupControls();
   renderList();
   if (renderCanvas) renderStage();
+}
+
+function toggleWindowSelection(section) {
+  if (state.selectedSections.has(section)) {
+    if (state.selectedSections.size === 1) return;
+    state.selectedSections.delete(section);
+    if (state.selected === section) {
+      selectWindow(state.selectedSections.values().next().value, true, false);
+      return;
+    }
+  } else {
+    state.selectedSections.add(section);
+  }
+  updateGroupControls();
+  renderList();
+  renderStage();
+}
+
+function handleWindowSelection(section, extendSelection) {
+  if (extendSelection) toggleWindowSelection(section);
+  else selectWindow(section);
 }
 
 function beginDrag(event) {
   event.preventDefault();
   const section = event.currentTarget.dataset.section;
-  if (section !== state.selected) selectWindow(section, false);
+  if (event.shiftKey) {
+    toggleWindowSelection(section);
+    return;
+  }
+  if (!state.selectedSections.has(section)) selectWindow(section, false);
   const window = selectedWindow();
   const stageRect = document.querySelector("#stage").getBoundingClientRect();
   state.drag = {
@@ -247,6 +314,13 @@ function beginDrag(event) {
     startY: window.y,
     startWidth: window.width,
     startHeight: window.height,
+    startWindows: selectedWindows().map((selected) => ({
+      section: selected.section,
+      x: selected.x,
+      y: selected.y,
+      width: selected.width,
+      height: selected.height,
+    })),
     scaleX: state.data.screen.width / stageRect.width,
     scaleY: state.data.screen.height / stageRect.height,
   };
@@ -261,29 +335,57 @@ function moveDrag(event) {
   const window = selectedWindow();
   const dx = (event.clientX - state.drag.startClientX) * state.drag.scaleX;
   const dy = (event.clientY - state.drag.startClientY) * state.drag.scaleY;
-  const next = studioModel.applyDrag(
-    {
-      x: state.drag.startX,
-      y: state.drag.startY,
-      width: state.drag.startWidth,
-      height: state.drag.startHeight,
-    },
-    dx,
-    dy,
-    {
-      enabled: state.snapEnabled,
-      bypass: event.altKey,
-      gridSize: state.snapSize,
-      resize: state.drag.resize,
-    },
+  if (state.drag.resize) {
+    Object.assign(
+      window,
+      studioModel.applyDrag(
+        {
+          x: state.drag.startX,
+          y: state.drag.startY,
+          width: state.drag.startWidth,
+          height: state.drag.startHeight,
+        },
+        dx,
+        dy,
+        {
+          enabled: state.snapEnabled,
+          bypass: event.altKey,
+          gridSize: state.snapSize,
+          resize: true,
+        },
+      ),
+    );
+    setPercentPosition(window);
+  } else {
+    const moved = studioModel.applyGroupDrag(
+      state.drag.startWindows,
+      state.selected,
+      dx,
+      dy,
+      {
+        enabled: state.snapEnabled,
+        bypass: event.altKey,
+        gridSize: state.snapSize,
+      },
+    );
+    const movedBySection = new Map(
+      moved.map((windowData) => [windowData.section, windowData]),
+    );
+    for (const selected of selectedWindows()) {
+      Object.assign(selected, movedBySection.get(selected.section));
+      setPercentPosition(selected, selected.section === state.selected);
+    }
+  }
+  const rendered = new Map(
+    [...document.querySelectorAll(".mock-window")].map((element) => [
+      element.dataset.section,
+      element,
+    ]),
   );
-  Object.assign(window, next);
-  setPercentPosition(window);
-  const screen = state.data.screen;
-  event.currentTarget.style.left = `${window.x * 100 / screen.width}%`;
-  event.currentTarget.style.top = `${window.y * 100 / screen.height}%`;
-  event.currentTarget.style.width = `${window.width * 100 / screen.width}%`;
-  event.currentTarget.style.height = `${window.height * 100 / screen.height}%`;
+  for (const selected of selectedWindows()) {
+    const element = rendered.get(selected.section);
+    if (element) updateMockWindowGeometry(element, selected);
+  }
 }
 
 function endDrag(event) {
@@ -292,6 +394,28 @@ function endDrag(event) {
   event.currentTarget.removeEventListener("pointercancel", endDrag);
   state.drag = null;
   renderStage();
+}
+
+function applyGroupAction(action) {
+  if (state.selectedSections.size < 2) return;
+  state.data.windows = studioModel.applyGroupLayout(
+    state.data.windows,
+    [...state.selectedSections],
+    state.selected,
+    action,
+  );
+  for (const window of selectedWindows()) {
+    setPercentPosition(window, window.section === state.selected);
+  }
+  const labels = {
+    "match-size": "Matched selected windows to the primary size.",
+    "align-left": "Aligned selected windows to the primary left edge.",
+    "align-top": "Aligned selected windows to the primary top edge.",
+    "distribute-horizontal": "Distributed selected windows evenly across.",
+    "distribute-vertical": "Distributed selected windows evenly down.",
+  };
+  renderStage();
+  status(`${labels[action]} Save selected to keep these changes.`, "success");
 }
 
 async function loadXml(filename) {
@@ -306,13 +430,18 @@ async function loadXml(filename) {
   }
 }
 
-async function loadState(preferredSelection = null, preservedWindows = null) {
+async function loadState(
+  preferredSelection = null,
+  preservedWindows = null,
+  savedSections = null,
+) {
+  const preservedSelection = preservedWindows ? [...state.selectedSections] : null;
   const data = await api("/api/state");
   if (preservedWindows && preferredSelection) {
-    data.windows = studioModel.mergeAfterSectionSave(
+    data.windows = studioModel.mergeAfterSectionsSave(
       preservedWindows,
       data.windows,
-      preferredSelection,
+      savedSections || [preferredSelection],
     );
   }
   state.data = data;
@@ -326,7 +455,15 @@ async function loadState(preferredSelection = null, preservedWindows = null) {
   const xmlSelect = document.querySelector("#xml-file");
   xmlSelect.replaceChildren(...data.xmlFiles.map((name) => new Option(name, name)));
   const candidate = data.windows.find((window) => window.section === preferredSelection) || data.windows.find((window) => window.visible) || data.windows[0];
-  if (candidate) selectWindow(candidate.section);
+  if (candidate && preservedSelection) {
+    const available = new Set(data.windows.map((window) => window.section));
+    state.selectedSections = new Set(
+      preservedSelection.filter((section) => available.has(section)),
+    );
+    selectWindow(candidate.section, true, false);
+  } else if (candidate) {
+    selectWindow(candidate.section);
+  }
   renderList();
   renderStage();
 }
@@ -350,6 +487,9 @@ document.querySelector("#snap-size").addEventListener("change", (event) => {
 });
 document.querySelector("#xml-file").addEventListener("change", (event) => loadXml(event.target.value));
 for (const field of Object.values(fields)) field.addEventListener("change", updateSelectedFromFields);
+document.querySelectorAll("[data-group-action]").forEach((button) => {
+  button.addEventListener("click", () => applyGroupAction(button.dataset.groupAction));
+});
 
 document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => {
   document.querySelectorAll(".tab, .tab-panel").forEach((element) => element.classList.remove("active"));
@@ -366,10 +506,36 @@ document.querySelector("#save-window").addEventListener("click", async () => {
   try {
     if (!updateSelectedFromFields()) return;
     const windowsBeforeSave = state.data.windows;
-    const settings = Object.fromEntries(Object.entries(window.values).filter(([key, value]) => value !== "" && ["XRef", "YRef", "XPos", "YPos", "Width", "Height", "Alpha", "FadeToAlpha", "Fades", "Locked", "Show", "BGType", "BGTint.red", "BGTint.green", "BGTint.blue"].includes(key)));
+    const settings = editableSettings(window);
     await api("/api/layout", { method: "POST", body: JSON.stringify({ section: window.section, settings }) });
     await loadState(window.section, windowsBeforeSave);
     status(`Saved ${window.section} to ${state.data.layout}.`, "success");
+  } catch (error) {
+    status(error.message, "error");
+  } finally {
+    endMutation();
+  }
+});
+
+document.querySelector("#save-selected").addEventListener("click", async () => {
+  if (state.selectedSections.size < 2 || !beginMutation()) return;
+  try {
+    if (!updateSelectedFromFields()) return;
+    const windowsBeforeSave = state.data.windows;
+    const sections = selectedWindows().map((window) => ({
+      section: window.section,
+      settings: editableSettings(window),
+    }));
+    await api("/api/layout", {
+      method: "POST",
+      body: JSON.stringify({ sections }),
+    });
+    await loadState(
+      state.selected,
+      windowsBeforeSave,
+      sections.map((item) => item.section),
+    );
+    status(`Saved ${sections.length} selected windows to ${state.data.layout}.`, "success");
   } catch (error) {
     status(error.message, "error");
   } finally {

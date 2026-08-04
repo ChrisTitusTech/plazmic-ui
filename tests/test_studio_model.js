@@ -4,8 +4,11 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   applyDrag,
+  applyGroupDrag,
+  applyGroupLayout,
   isWindowDisplayed,
   mergeAfterSectionSave,
+  mergeAfterSectionsSave,
   snapValue,
 } = require("../ui-tools/studio/studio-model.js");
 
@@ -83,4 +86,81 @@ test("saving one section preserves unsaved sibling window state", () => {
     current[0],
     loaded[1],
   ]);
+});
+
+test("saving a group reloads selected sections and preserves outside state", () => {
+  const current = [
+    { section: "ChatWindow", x: 48 },
+    { section: "MapWindow", x: 96 },
+    { section: "InventoryWindow", x: 144 },
+  ];
+  const loaded = [
+    { section: "ChatWindow", x: 56 },
+    { section: "MapWindow", x: 104 },
+    { section: "InventoryWindow", x: 16 },
+  ];
+  assert.deepEqual(
+    mergeAfterSectionsSave(current, loaded, ["ChatWindow", "MapWindow"]),
+    [loaded[0], loaded[1], current[2]],
+  );
+});
+
+test("group dragging snaps the primary and preserves relative offsets", () => {
+  const group = [
+    { section: "Primary", x: 13, y: 21, width: 100, height: 80 },
+    { section: "Sibling", x: 43, y: 61, width: 120, height: 90 },
+  ];
+  assert.deepEqual(
+    applyGroupDrag(group, "Primary", 6, 9, { enabled: true, gridSize: 8 }),
+    [
+      { section: "Primary", x: 16, y: 32, width: 100, height: 80 },
+      { section: "Sibling", x: 46, y: 72, width: 120, height: 90 },
+    ],
+  );
+});
+
+test("group layout matches primary size and aligns primary edges", () => {
+  const windows = [
+    { section: "Primary", x: 24, y: 32, width: 100, height: 80 },
+    { section: "Sibling", x: 200, y: 180, width: 140, height: 120 },
+    { section: "Outside", x: 400, y: 300, width: 90, height: 60 },
+  ];
+  const selected = ["Primary", "Sibling"];
+  const sized = applyGroupLayout(windows, selected, "Primary", "match-size");
+  assert.deepEqual(sized[1], {
+    section: "Sibling",
+    x: 200,
+    y: 180,
+    width: 100,
+    height: 80,
+  });
+  assert.equal(sized[2], windows[2]);
+
+  const left = applyGroupLayout(windows, selected, "Primary", "align-left");
+  assert.equal(left[1].x, 24);
+  const top = applyGroupLayout(windows, selected, "Primary", "align-top");
+  assert.equal(top[1].y, 32);
+});
+
+test("group layout distributes mixed sizes with equal gaps", () => {
+  const windows = [
+    { section: "First", x: 0, y: 0, width: 40, height: 20 },
+    { section: "Middle", x: 80, y: 100, width: 20, height: 40 },
+    { section: "Last", x: 180, y: 180, width: 60, height: 60 },
+  ];
+  const selected = windows.map((windowData) => windowData.section);
+  const horizontal = applyGroupLayout(
+    windows,
+    selected,
+    "First",
+    "distribute-horizontal",
+  );
+  assert.deepEqual(horizontal.map((windowData) => windowData.x), [0, 100, 180]);
+  const vertical = applyGroupLayout(
+    windows,
+    selected,
+    "First",
+    "distribute-vertical",
+  );
+  assert.deepEqual(vertical.map((windowData) => windowData.y), [0, 80, 180]);
 });
