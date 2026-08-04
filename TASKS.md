@@ -11,8 +11,8 @@ skipped live checks and residual risk rather than marking them complete.
 - [x] Add versioned PyInstaller builds for x86-64 Linux and Windows.
 - [x] Document binary installation, scope, checksums, and workspace locations.
 - [x] Pass the local Linux artifact build and smoke test.
-- [ ] Pass hosted Linux and Windows artifact smoke tests.
-- [ ] Review, push, tag `v0.1.0`, publish the release, and verify every asset.
+- [x] Pass hosted Linux and Windows artifact smoke tests.
+- [x] Review, push, tag `v0.1.0`, publish the release, and verify every asset.
 - Acceptance criteria: AC-11 and the Phase 4 exit criteria.
 - Automated validation: `make check`, PyInstaller build, binary verifier,
   GitHub Actions matrix, release checksum verification, and artifact audit.
@@ -70,3 +70,10 @@ All CodeRabbit findings from three completed review passes were addressed. A
 final confirmation pass was rate-limited, so the exact reviewed diff received
 the same local static, test, secret, whitespace, and clean-clone gates before
 push. GitHub Actions then passed on the published implementation commit.
+
+Studio 0.1.0 is published with Linux x86-64 and Windows x86-64 executables plus
+verified SHA-256 checksums. Both artifacts passed version and embedded-frontend
+diagnostics on native GitHub runners; the downloaded Linux release also served
+the ignored local workspace successfully. Native Windows browser/game
+interaction was not available for manual testing, and the first Windows binary
+is not Authenticode-signed, as documented in the release notes.
