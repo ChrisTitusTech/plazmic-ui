@@ -1,5 +1,41 @@
 # User guide
 
+## Packaged Studio executables
+
+Release downloads provide a Linux x86-64 binary and a Windows x86-64 `.exe`.
+They need no separate Python installation and support the `capture`, `studio`,
+and `publish` commands documented below.
+
+Linux example:
+
+```bash
+chmod +x plazmic-ui-studio-linux-x86_64
+./plazmic-ui-studio-linux-x86_64 capture \
+  --game-dir '/path/to/EverQuest Legends'
+./plazmic-ui-studio-linux-x86_64 studio
+```
+
+Windows PowerShell example:
+
+```powershell
+.\plazmic-ui-studio-windows-x86_64.exe capture `
+  --game-dir 'C:\Path\To\EverQuest Legends'
+.\plazmic-ui-studio-windows-x86_64.exe studio
+```
+
+Verify a download against the release's `SHA256SUMS` before running it. The
+packaged Studio stores private data in these default roots:
+
+- Linux: `${XDG_DATA_HOME:-~/.local/share}/plazmic-ui/.plazmic-ui-workspace`;
+- Windows: `%LOCALAPPDATA%\plazmic-ui\.plazmic-ui-workspace`.
+
+Set `PLAZMIC_UI_DATA_DIR` to use a different private application-data root.
+The repository-only `sync`, format, lint, and offline install commands still
+require the Linux source checkout and its system dependencies.
+
+The first Windows release is not Authenticode-signed. Windows may show a
+SmartScreen warning; verify the SHA-256 checksum before deciding to run it.
+
 ## Choose the local game directory
 
 Every command that reads or writes the game accepts `--game-dir`. The
@@ -10,8 +46,8 @@ export EQ_LEGENDS_DIR='/path/to/EverQuest Legends'
 ```
 
 The directory must directly contain `eqgame.exe`, `uifiles/`, and the top-level
-`UI_*.ini` files. Plazmic UI stores the selected path only in ignored
-`.plazmic-ui-workspace/studio.json`.
+`UI_*.ini` files. Plazmic UI stores the selected path only in the private
+workspace's `studio.json`.
 
 Paths with spaces are supported. Quote an explicit path:
 

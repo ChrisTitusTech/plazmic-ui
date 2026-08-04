@@ -8,8 +8,8 @@ safer and clearer without weakening the asset, path, or publish boundaries.
 - Read the [user guide](docs/user-guide.md) and
   [troubleshooting guide](docs/troubleshooting.md).
 - Confirm the problem occurs on current `main`.
-- Include your Linux distribution, Python version, browser family, Wine runner,
-  command, and redacted error category.
+- Include your operating system, source or packaged version, browser family,
+  game runner, command, and redacted error category.
 - Do not attach game assets, `UI_*.ini` files, Wine-prefix contents, character
   names, account data, crash dumps, credentials, or absolute personal paths.
 - Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
@@ -17,10 +17,11 @@ safer and clearer without weakening the asset, path, or publish boundaries.
 ## Scope
 
 In scope: capture, local materialization, layout/XML editing, validation,
-backups, safe publish, accessibility, documentation, and Linux compatibility.
+backups, safe publish, accessibility, documentation, Linux source
+compatibility, and Linux/Windows Studio packaging.
 
-Out of scope: bundled game files, a proprietary-texture renderer, Windows host
-support, binary patching, code injection, macros, gameplay automation,
+Out of scope: bundled game files, a proprietary-texture renderer, macOS
+packaging, binary patching, code injection, macros, gameplay automation,
 synthesized input, multibox control, and changes to gameplay state.
 
 ## Development workflow

@@ -29,6 +29,11 @@ apply_improvements = load_module("apply_improvements", ROOT / "ui-tools" / "appl
 lint_ui = load_module("lint_ui", ROOT / "ui-tools" / "lint-ui.py")
 format_xml = load_module("format_xml_tests", ROOT / "ui-tools" / "format_xml.py")
 ui_studio = load_module("ui_studio_tests", ROOT / "ui-tools" / "ui_studio.py")
+release_version = load_module("release_version_tests", ROOT / "tools" / "release_version.py")
+verify_release_binary = load_module(
+    "verify_release_binary_tests",
+    ROOT / "tools" / "verify_release_binary.py",
+)
 
 
 ADVANCED_LOOT_FIXTURE = """\
@@ -165,7 +170,83 @@ class FormatTests(unittest.TestCase):
         self.assertNotIn("\r", formatted)
 
 
+class ReleaseToolTests(unittest.TestCase):
+    def test_release_version_matches_studio(self) -> None:
+        self.assertEqual(release_version.studio_version(), ui_studio.VERSION)
+
+    def test_release_binary_verifier_checks_magic_version_and_frontend(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            binary = Path(temp_dir) / "plazmic-ui-studio"
+            with binary.open("wb") as handle:
+                handle.write(b"\x7fELF")
+                handle.truncate(verify_release_binary.MINIMUM_BINARY_SIZE)
+            expected_outputs = [
+                "Plazmic UI Studio 0.1.0\n",
+                "Plazmic UI Studio 0.1.0: frontend bundle is ready\n",
+            ]
+
+            with mock.patch.object(
+                verify_release_binary.subprocess,
+                "run",
+                side_effect=[
+                    subprocess.CompletedProcess([], 0, stdout=output, stderr="")
+                    for output in expected_outputs
+                ],
+            ) as run:
+                verify_release_binary.verify_binary(binary, "linux", "0.1.0")
+
+            self.assertEqual(run.call_count, 2)
+
+            with self.assertRaisesRegex(ValueError, "not a windows executable"):
+                verify_release_binary.verify_binary(binary, "windows", "0.1.0")
+
+    def test_release_binary_verifier_rejects_linked_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            physical = root / "physical"
+            physical.mkdir()
+            binary = physical / "studio"
+            with binary.open("wb") as handle:
+                handle.write(b"\x7fELF")
+                handle.truncate(verify_release_binary.MINIMUM_BINARY_SIZE)
+            linked = root / "linked"
+            linked.symlink_to(physical, target_is_directory=True)
+
+            with self.assertRaisesRegex(ValueError, "must not contain links"):
+                verify_release_binary.verify_binary(linked / "studio", "linux", "0.1.0")
+
+
 class UiStudioTests(unittest.TestCase):
+    def test_windows_reparse_points_are_treated_as_links(self) -> None:
+        candidate = mock.Mock(spec=Path)
+        candidate.is_symlink.return_value = False
+        candidate.lstat.return_value = mock.Mock(st_file_attributes=0x400)
+        with (
+            mock.patch.object(ui_studio.os, "name", "nt"),
+            mock.patch.object(ui_studio.stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400, create=True),
+        ):
+            self.assertTrue(ui_studio.is_link_like(candidate))
+
+    def test_frozen_paths_use_private_data_root_and_bundled_static_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            with (
+                mock.patch.object(ui_studio.sys, "frozen", True, create=True),
+                mock.patch.object(ui_studio.sys, "_MEIPASS", str(root / "bundle"), create=True),
+                mock.patch.dict(
+                    os.environ,
+                    {"PLAZMIC_UI_DATA_DIR": str(root / "data")},
+                ),
+            ):
+                self.assertEqual(
+                    ui_studio.application_data_root(root / "source"),
+                    (root / "data").resolve(),
+                )
+                self.assertEqual(
+                    ui_studio.static_directory(root / "source"),
+                    root / "bundle" / "studio",
+                )
+
     def test_layout_update_preserves_newlines_and_unrelated_settings(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -479,6 +560,31 @@ class UiStudioTests(unittest.TestCase):
 
 
 class CliTests(unittest.TestCase):
+    def test_studio_reports_release_version(self) -> None:
+        result = subprocess.run(
+            [sys.executable, ROOT / "ui-tools" / "ui_studio.py", "--version"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), "Plazmic UI Studio 0.1.0")
+
+    def test_studio_diagnoses_source_frontend(self) -> None:
+        result = subprocess.run(
+            [sys.executable, ROOT / "ui-tools" / "ui_studio.py", "diagnose"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(
+            result.stdout.strip(),
+            "Plazmic UI Studio 0.1.0: frontend bundle is ready",
+        )
+
     def test_unknown_command_fails_with_help(self) -> None:
         result = subprocess.run(
             [ROOT / "plazmic-ui", "unknown"],

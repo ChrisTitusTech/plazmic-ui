@@ -1,0 +1,150 @@
+---
+name: Release Studio binaries
+
+'on':
+  workflow_dispatch:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} x86-64
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-22.04
+            source: dist/plazmic-ui-studio
+            asset: plazmic-ui-studio-linux-x86_64
+          - platform: windows
+            runner: windows-2025
+            source: dist/plazmic-ui-studio.exe
+            asset: plazmic-ui-studio-windows-x86_64.exe
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out repository
+        # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        # v7.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.11"
+
+      - name: Validate release version
+        id: version
+        run: python tools/release_version.py --check-tag --github-output
+
+      - name: Install pinned packager
+        run: >-
+          python -m pip install --disable-pip-version-check
+          pyinstaller==6.21.0 ruff==0.15.21
+
+      - name: Run cross-platform static checks
+        run: |
+          ruff check tests tools ui-tools
+          ruff format --check tests tools ui-tools
+
+      - name: Compile release Python sources
+        run: >-
+          python -m py_compile
+          tests/test_plazmic_ui_tools.py
+          tools/release_version.py
+          tools/verify_release_binary.py
+          ui-tools/ui_studio.py
+
+      - name: Run synthetic tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Install Linux source-gate tools
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes rsync shellcheck shfmt
+          npm install --global markdownlint-cli2@0.23.0
+
+      - name: Run complete Linux source gate
+        if: matrix.platform == 'linux'
+        run: make check
+
+      - name: Build one-file executable
+        run: python -m PyInstaller --clean --noconfirm plazmic-ui-studio.spec
+
+      - name: Name release executable
+        env:
+          ASSET_NAME: ${{ matrix.asset }}
+          SOURCE_PATH: ${{ matrix.source }}
+        run: >-
+          python -c "from pathlib import Path; import os, shutil;
+          source = Path(os.environ['SOURCE_PATH']);
+          target = Path('release-assets') / os.environ['ASSET_NAME'];
+          target.parent.mkdir(); shutil.copy2(source, target)"
+
+      - name: Verify release executable
+        run: >-
+          python tools/verify_release_binary.py
+          --platform "${{ matrix.platform }}"
+          --version "${{ steps.version.outputs.version }}"
+          "release-assets/${{ matrix.asset }}"
+
+      - name: Upload verified executable
+        # v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ matrix.asset }}
+          path: release-assets/${{ matrix.asset }}
+          if-no-files-found: error
+          retention-days: 14
+          archive: false
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release notes
+        # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Validate release version
+        id: version
+        run: python tools/release_version.py --check-tag --github-output
+
+      - name: Download verified executables
+        # v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: plazmic-ui-studio-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate checksums and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd release-assets
+          sha256sum plazmic-ui-studio-* > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" \
+            plazmic-ui-studio-* SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "Plazmic UI Studio $GITHUB_REF_NAME" \
+            --notes-file \
+              "../docs/releases/v${{ steps.version.outputs.version }}.md"

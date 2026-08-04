@@ -17,6 +17,9 @@ Contributor dependencies:
 - shfmt 3.10 or newer; and
 - Markdownlint CLI2 0.23.x.
 
+Release builds additionally pin PyInstaller 6.21.0. PyInstaller must run on
+each target operating system; it is not used by normal source execution.
+
 On Fedora, install the available distribution packages for Python, `rsync`,
 ShellCheck, shfmt, and Node.js, then install the pinned Markdownlint CLI2 used
 by CI. On Ubuntu, the GitHub Actions workflow documents the required apt and
@@ -90,3 +93,23 @@ Before committing:
 
 Hosted CI cannot access EverQuest. Record live `/loadskin` validation separately
 and never attach its assets or personal layout.
+
+## Build a Studio executable
+
+Install the pinned build dependency into an isolated environment, then use the
+reviewed spec file:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install pyinstaller==6.21.0
+python -m PyInstaller --clean --noconfirm plazmic-ui-studio.spec
+python tools/verify_release_binary.py \
+  --platform linux --version "$(python tools/release_version.py)" \
+  dist/plazmic-ui-studio
+```
+
+PyInstaller is not a cross-compiler. The release workflow builds the Windows
+`.exe` on a Windows runner and the ELF binary on a Linux runner. A manual
+workflow dispatch builds and smoke-tests both without creating a release. A
+matching `vMAJOR.MINOR.PATCH` tag publishes only after both jobs pass.

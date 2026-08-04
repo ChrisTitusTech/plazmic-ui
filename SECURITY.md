@@ -2,7 +2,8 @@
 
 ## Supported versions
 
-Security fixes target the current `main` branch until tagged releases begin.
+Security fixes target the current `main` branch and the latest tagged Studio
+release.
 
 ## Reporting a vulnerability
 
@@ -32,6 +33,10 @@ File operations are deliberately narrow:
 - source and target symlinks are rejected; and
 - existing targets are backed up before replacement, with rollback on a
   partial publish failure.
+
+Packaged Studio workspaces live under the current user's local application-data
+directory unless `PLAZMIC_UI_DATA_DIR` explicitly selects another root. Release
+binaries contain no game files or user data.
 
 The project does not patch the game, inject code, automate gameplay, synthesize
 input, access credentials, or change gameplay state.

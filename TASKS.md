@@ -5,6 +5,20 @@ skipped live checks and residual risk rather than marking them complete.
 
 ## Current phase
 
+### P-01: Package and publish Studio 0.1.0
+
+- [x] Make Studio resources and private storage work in frozen applications.
+- [x] Add versioned PyInstaller builds for x86-64 Linux and Windows.
+- [x] Document binary installation, scope, checksums, and workspace locations.
+- [x] Pass the local Linux artifact build and smoke test.
+- [ ] Pass hosted Linux and Windows artifact smoke tests.
+- [ ] Review, push, tag `v0.1.0`, publish the release, and verify every asset.
+- Acceptance criteria: AC-11 and the Phase 4 exit criteria.
+- Automated validation: `make check`, PyInstaller build, binary verifier,
+  GitHub Actions matrix, release checksum verification, and artifact audit.
+- Manual validation: launch the Linux binary against ignored local data;
+  Windows browser/game interaction remains separate from runner smoke tests.
+
 ### F-01: Establish the standalone public repository
 
 - [x] Create a clean `main` history with only public-safe UI tooling.

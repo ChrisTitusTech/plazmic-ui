@@ -8,6 +8,7 @@ import os
 import re
 import secrets
 import shutil
+import stat
 import sys
 import tempfile
 import threading
@@ -23,6 +24,8 @@ from urllib.parse import parse_qs, urlparse
 
 DEFAULT_SCREEN_WIDTH = 2560
 DEFAULT_SCREEN_HEIGHT = 1440
+VERSION = "0.1.0"
+APPLICATION_NAME = "Plazmic UI Studio"
 MIN_SCREEN_EXTENT = 640
 MAX_SCREEN_EXTENT = 8192
 MAX_REQUEST_BYTES = 10 * 1024 * 1024
@@ -49,6 +52,31 @@ EDITABLE_KEYS = {
     "BGTint.green",
     "BGTint.blue",
 }
+
+
+def frozen_application() -> bool:
+    return bool(getattr(sys, "frozen", False))
+
+
+def application_data_root(script_dir: Path) -> Path:
+    if not frozen_application():
+        return script_dir.parent
+
+    override = os.environ.get("PLAZMIC_UI_DATA_DIR")
+    if override:
+        return Path(override).expanduser().resolve()
+    if os.name == "nt":
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    else:
+        base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    return base / "plazmic-ui"
+
+
+def static_directory(script_dir: Path) -> Path:
+    if frozen_application():
+        bundle_root = Path(getattr(sys, "_MEIPASS", script_dir))
+        return bundle_root / "studio"
+    return script_dir / "studio"
 
 
 @dataclass(frozen=True)
@@ -98,10 +126,22 @@ def ignored_game_sidecar(_directory: str, names: list[str]) -> set[str]:
     }
 
 
+def is_link_like(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    if os.name != "nt":
+        return False
+    try:
+        attributes = getattr(path.lstat(), "st_file_attributes", 0)
+    except OSError:
+        return False
+    return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
+
+
 def first_symlink(root: Path) -> Path | None:
-    if root.is_symlink():
+    if is_link_like(root):
         return root
-    return next((path for path in root.rglob("*") if path.is_symlink()), None)
+    return next((path for path in root.rglob("*") if is_link_like(path)), None)
 
 
 def constant_time_header(value: str, expected: str) -> bool:
@@ -113,7 +153,7 @@ def constant_time_header(value: str, expected: str) -> bool:
 
 def local_workspace(repo: Path, *, create: bool) -> Path:
     workspace = repo / WORKSPACE_DIRECTORY
-    if workspace.is_symlink():
+    if is_link_like(workspace):
         raise ValueError(f"private workspace must not be a symlink: {workspace}")
     if create:
         workspace.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -279,7 +319,7 @@ def xml_for_section(skin: Path, section: str) -> tuple[str | None, int, int]:
     item, candidates = screen_identity(section)
     for filename in candidates:
         path = skin / filename
-        if not path.is_file() or path.is_symlink():
+        if not path.is_file() or is_link_like(path):
             continue
         size = xml_window_size(path, item)
         if size is not None:
@@ -323,7 +363,7 @@ def layout_state(paths: StudioPaths) -> dict[str, Any]:
     xml_files = [
         path.name
         for path in sorted(paths.skin.glob("*.xml"))
-        if path.is_file() and not path.is_symlink()
+        if path.is_file() and not is_link_like(path)
     ]
     return {
         "screen": {"width": paths.screen_width, "height": paths.screen_height},
@@ -394,7 +434,7 @@ def safe_xml_path(skin: Path, filename: str) -> Path:
     path = skin / filename
     if not path.is_file():
         raise ValueError(f"XML file does not exist: {filename}")
-    if path.is_symlink():
+    if is_link_like(path):
         raise ValueError(f"XML symlinks are not editable: {filename}")
     if path.resolve().parent != skin.resolve():
         raise ValueError(f"XML file escapes the skin workspace: {filename}")
@@ -423,7 +463,7 @@ def validate_xml(contents: str) -> bytes:
 
 def game_layouts(game: Path) -> list[Path]:
     return sorted(
-        path for path in game.glob("UI_*.ini") if path.is_file() and not path.is_symlink()
+        path for path in game.glob("UI_*.ini") if path.is_file() and not is_link_like(path)
     )
 
 
@@ -485,7 +525,7 @@ def write_config(
 def read_layout_contents(game: Path, layout: Path) -> bytes:
     if not LAYOUT_NAME_PATTERN.fullmatch(layout.name):
         raise ValueError(f"invalid layout filename: {layout.name}")
-    if layout.is_symlink() or layout.parent.resolve() != game.resolve():
+    if is_link_like(layout) or layout.parent.resolve() != game.resolve():
         raise ValueError("layout must be a top-level regular game file")
     contents = layout.read_bytes()
     if len(contents) > MAX_REQUEST_BYTES:
@@ -560,7 +600,7 @@ def copy_skin_atomically(source: Path, target: Path) -> Path | None:
     symlink = first_symlink(source)
     if symlink is not None:
         raise ValueError("workspace skin contains a symlink")
-    if target.is_symlink():
+    if is_link_like(target):
         raise ValueError("installed skin target is a symlink")
     if target.exists() and not target.is_dir():
         raise ValueError("installed skin target must be a physical directory")
@@ -586,7 +626,7 @@ def copy_skin_atomically(source: Path, target: Path) -> Path | None:
 
 def restore_skin_after_failed_publish(target: Path, backup: Path | None) -> None:
     if target.exists():
-        if target.is_symlink() or not target.is_dir():
+        if is_link_like(target) or not target.is_dir():
             raise OSError("cannot roll back an unexpected skin target")
         shutil.rmtree(target)
     if backup is not None:
@@ -599,14 +639,14 @@ def publish_workspace(paths: StudioPaths, target_name: str) -> dict[str, str]:
     target_layout = paths.game / target_name
     if target_layout not in game_layouts(paths.game):
         raise ValueError(f"target UI INI does not exist: {target_name}")
-    if target_layout.is_symlink():
+    if is_link_like(target_layout):
         raise ValueError(f"target UI INI must not be a symlink: {target_name}")
     if not (paths.skin / "EQUI.xml").is_file():
         raise ValueError("workspace skin is incomplete")
     symlink = first_symlink(paths.skin)
     if symlink is not None:
         raise ValueError("workspace skin contains a symlink")
-    if paths.layout.is_symlink() or not paths.layout.is_file():
+    if is_link_like(paths.layout) or not paths.layout.is_file():
         raise ValueError("workspace layout must be a physical regular file")
     layout_contents = paths.layout.read_bytes()
     if len(layout_contents) > MAX_REQUEST_BYTES:
@@ -654,12 +694,12 @@ def publish_workspace(paths: StudioPaths, target_name: str) -> dict[str, str]:
 
 def load_local_config(repo: Path) -> dict[str, str]:
     workspace = repo / WORKSPACE_DIRECTORY
-    if workspace.is_symlink():
+    if is_link_like(workspace):
         raise ValueError(f"private workspace must not be a symlink: {workspace}")
     path = workspace / "studio.json"
     if not path.is_file():
         return {}
-    if path.is_symlink():
+    if is_link_like(path):
         raise ValueError(f"Studio configuration must not be a symlink: {path}")
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -690,7 +730,7 @@ def resolve_paths(args: argparse.Namespace, repo: Path) -> StudioPaths:
         layout = local_layouts[0]
     if not layout.is_file():
         raise ValueError("the selected local layout was not found")
-    if layout.is_symlink():
+    if is_link_like(layout):
         raise ValueError("the selected local layout must not be a symlink")
     if layout.stat().st_size > MAX_REQUEST_BYTES:
         raise ValueError(f"local layout exceeds the {MAX_REQUEST_BYTES}-byte limit")
@@ -873,6 +913,7 @@ def serve(paths: StudioPaths, static_dir: Path, port: int, open_browser: bool) -
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Offline Plazmic EQ UI studio")
+    parser.add_argument("--version", action="version", version=f"{APPLICATION_NAME} {VERSION}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     capture_parser = subparsers.add_parser(
@@ -890,7 +931,11 @@ def parse_args() -> argparse.Namespace:
         help="capture only the selected layout and keep the existing skin workspace",
     )
 
-    serve_parser = subparsers.add_parser("serve", help="open the local drag-and-drop UI editor")
+    serve_parser = subparsers.add_parser(
+        "serve",
+        aliases=["studio"],
+        help="open the local drag-and-drop UI editor",
+    )
     serve_parser.add_argument("--game-dir")
     serve_parser.add_argument("--layout")
     serve_parser.add_argument("--resolution", help="mock canvas size as WIDTHxHEIGHT")
@@ -904,14 +949,28 @@ def parse_args() -> argparse.Namespace:
     publish_parser.add_argument("--layout")
     publish_parser.add_argument("--resolution", help=argparse.SUPPRESS)
     publish_parser.add_argument("--target-ini")
+
+    subparsers.add_parser(
+        "diagnose",
+        help="verify the packaged Studio frontend without accessing game files",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     script_dir = Path(__file__).resolve().parent
-    repo = script_dir.parent
+    repo = application_data_root(script_dir)
+    static_dir = static_directory(script_dir)
     try:
+        if args.command == "diagnose":
+            if not all(
+                (static_dir / name).is_file() for name in ("index.html", "app.js", "style.css")
+            ):
+                raise ValueError("Studio frontend files are missing from this installation")
+            print(f"{APPLICATION_NAME} {VERSION}: frontend bundle is ready")
+            return 0
+
         if args.command == "capture":
             game_value = args.game_dir or os.environ.get("EQ_LEGENDS_DIR")
             if not game_value:
@@ -936,8 +995,12 @@ def main() -> int:
             return 0
 
         paths = resolve_paths(args, repo)
-        if args.command == "serve":
-            serve(paths, script_dir / "studio", args.port, not args.no_browser)
+        if args.command in {"serve", "studio"}:
+            if not all(
+                (static_dir / name).is_file() for name in ("index.html", "app.js", "style.css")
+            ):
+                raise ValueError("Studio frontend files are missing from this installation")
+            serve(paths, static_dir, args.port, not args.no_browser)
             return 0
         if args.command == "publish":
             target = choose_layout(paths.game, args.target_ini).name

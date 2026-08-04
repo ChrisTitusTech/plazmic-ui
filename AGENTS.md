@@ -2,10 +2,12 @@
 
 ## Purpose
 
-Plazmic UI is a public, source-only toolkit for building and editing a local
-EverQuest Legends UI on Linux. It copies UI source from the user's own game
-installation, previews and edits `UI_*.ini` layouts in a loopback-only browser
-Studio, validates EQ XML, and publishes explicit local changes with backups.
+Plazmic UI is a public toolkit for building and editing a local EverQuest
+Legends UI. Its source workflow targets Linux, while GitHub releases package
+the browser Studio as one-file Linux and Windows executables.
+It copies UI source from the user's own game installation, previews and edits
+`UI_*.ini` layouts in a loopback-only browser Studio, validates EQ XML, and
+publishes explicit local changes with backups.
 
 The repository never contains or distributes Daybreak assets, user layouts,
 game binaries, Wine-prefix content, account data, or character data.
@@ -21,8 +23,9 @@ game binaries, Wine-prefix content, account data, or character data.
 - `.plazmic-ui-workspace/` contains the generated skin, layouts, backups, and
   local configuration; the entire directory must remain ignored.
 
-Supported runtime: Linux, Python 3.11 or newer, a POSIX shell, GNU coreutils,
-and `rsync`. The Studio uses a current browser and binds only to `127.0.0.1`.
+The source workflow requires Linux, Python 3.11 or newer, a POSIX shell, GNU
+coreutils, and `rsync`. Packaged Studio binaries target x86-64 Linux and
+Windows. The Studio uses a current browser and binds only to `127.0.0.1`.
 
 ## Working boundaries
 
@@ -32,6 +35,8 @@ and `rsync`. The Studio uses a current browser and binds only to `127.0.0.1`.
   paths, account data, character names, logs, crash dumps, or credentials.
 - Never ship files copied from `default`, `default_modern`, or another installed
   Daybreak skin.
+- Release binaries may contain only project source, the static Studio frontend,
+  the Python runtime, and PyInstaller runtime components.
 - Do not modify `default` or `default_modern` in place.
 - Restrict writes to the local repository workspaces, `uifiles/plazmic-ui`, and
   one explicitly selected top-level `UI_*.ini`.

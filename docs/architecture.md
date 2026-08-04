@@ -14,6 +14,12 @@
 - `studio/` is static HTML, CSS, and JavaScript with no build system or remote
   dependency.
 
+Release executables package `ui_studio.py`, `studio/`, a Python runtime, and
+PyInstaller runtime components into one file per target operating system. They
+do not package the POSIX shell tools or any materialized workspace. Frozen
+executables resolve the frontend from their temporary bundle and keep mutable
+private data under the user's local application-data directory.
+
 ## Data flow
 
 ```text
@@ -31,6 +37,10 @@ No copied game file enters Git, CI, a package, an external review service, or
 an external network request. The browser Studio exchanges copied content only
 with its loopback server on `127.0.0.1`; that local traffic never leaves the
 host.
+
+Release CI builds on Linux and Windows separately, runs the synthetic test
+suite, verifies the executable format and version, and asks the executable to
+validate its embedded frontend before it can become a release asset.
 
 ## INI model
 

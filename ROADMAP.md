@@ -118,3 +118,46 @@ the provider's supported sensitive-data removal process to purge only affected
 objects and references while preserving unrelated history. Credential
 revocation and rotation is a separate immediate action even when history is
 purged. Follow the incident steps in `SECURITY.md`.
+
+## Phase 4: First packaged Studio release
+
+### Outcome
+
+Users can download a one-file Studio executable for x86-64 Linux or Windows
+without installing Python or cloning the repository.
+
+### Included work
+
+- Make runtime resource and private workspace discovery frozen-app aware.
+- Package only the Studio Python code and static frontend with PyInstaller.
+- Build and smoke-test each executable on its target operating system.
+- Publish versioned release notes, both binaries, and SHA-256 checksums.
+
+### Dependencies and risks
+
+- PyInstaller is a build-time dependency pinned for the release workflow; a
+  packager update requires a new binary review and smoke test.
+- One-file executables extract runtime components to an operating-system temp
+  directory while running.
+- The packaged Studio excludes Linux shell-only sync, format, lint, and offline
+  install commands.
+
+### Exit criteria
+
+- AC-11 passes on both target runners.
+- A manual workflow run verifies both artifacts before tagging.
+- The `v0.1.0` release exists publicly and its assets match `SHA256SUMS`.
+
+### Validation
+
+- Run the complete source gate and a local Linux package smoke test.
+- Run source tests, version validation, binary format/size checks, and bundled
+  frontend diagnostics on Linux and Windows GitHub runners.
+- Download the published assets, verify checksums and executable formats, and
+  run the Linux binary locally.
+
+### Rollback
+
+If an artifact is invalid, mark the release as affected, publish a corrected
+patch version, and retain the original tag for auditability. Never replace a
+published binary silently.

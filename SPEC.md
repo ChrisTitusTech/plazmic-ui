@@ -13,7 +13,8 @@ XML editing, and narrow install/publish operations with rollback backups.
 
 ## Users
 
-- EverQuest Legends players running the game through Wine on Linux.
+- EverQuest Legends players running the game through Wine on Linux or natively
+  on Windows.
 - UI authors who want to derive a skin from their own installed files.
 - Contributors who need deterministic tests without a game installation.
 
@@ -49,11 +50,15 @@ game process, or a patched skin whose XML differs from the reviewed baseline.
 - Open only top-level non-symlink XML files from the local skin workspace.
 - Save only US-ASCII, well-formed EQ interface XML after validation.
 - Back up every replaced local INI or XML file and use atomic replacement.
+- Run from source or from one-file x86-64 Linux and Windows release binaries.
+- Store packaged-app workspaces in the user's local application-data directory,
+  with an explicit environment override for portable or test use.
 
 ### Install and publish
 
-- `install` validates the materialized skin and writes only the sibling
-  `uifiles/plazmic-ui` directory. It refuses while `eqgame.exe` is running.
+- The Linux source-only `install` command validates the materialized skin and
+  writes only the sibling `uifiles/plazmic-ui` directory. It refuses while
+  `eqgame.exe` is running.
 - `publish` is the explicit live-test path. It validates and stages the skin,
   asks which existing top-level `UI_*.ini` to replace, backs up both targets,
   and writes no other game file.
@@ -77,7 +82,8 @@ game process, or a patched skin whose XML differs from the reviewed baseline.
 
 The primary path is:
 
-1. Clone the repository and point it at the local Legends installation.
+1. Download a Studio executable or clone the repository and point it at the
+   local Legends installation.
 2. Capture an installed skin/layout or sync a fresh local derivative.
 3. Open the Studio, edit, and save into ignored workspaces.
 4. Publish explicitly, then reload the skin in game.
@@ -119,7 +125,9 @@ renders the editor; it has no build step and no external network dependency.
 
 ## Performance and compatibility
 
-- Linux with Python 3.11+, a POSIX shell, GNU coreutils, and `rsync`.
+- Source workflow: Linux with Python 3.11+, a POSIX shell, GNU coreutils, and
+  `rsync`.
+- Packaged Studio: x86-64 Linux or Windows and no separate Python installation.
 - Current Chromium- and Firefox-family browsers.
 - Default canvas 2560x1440; supported custom dimensions are 640-8192 pixels per
   axis.
@@ -132,7 +140,7 @@ renders the editor; it has no build step and no external network dependency.
 
 - Distributing a complete EverQuest skin or any Daybreak asset.
 - Reimplementing the full SIDL renderer or showing proprietary textures.
-- Supporting native Windows or macOS hosts in the initial release.
+- Supporting macOS or non-x86-64 packaged hosts in the initial release.
 - Editing game binaries, DLLs, registry state, memory, or gameplay state.
 - Injecting code, macros, scripting, input automation, or multibox control.
 - Automatically selecting a character layout when more than one exists.
@@ -160,6 +168,9 @@ renders the editor; it has no build step and no external network dependency.
   ignored local data, and the live `/loadskin` result is reported separately.
 - AC-10: Independent review has no unresolved critical or warning findings,
   the exact reviewed commit is pushed to public `main`, and remote CI passes.
+- AC-11: The first release provides verified Linux ELF and Windows PE x86-64
+  Studio executables, matching version output, embedded frontend files,
+  SHA-256 checksums, and no game or personal assets.
 
 ## Resolved decisions
 
@@ -167,7 +178,7 @@ renders the editor; it has no build step and no external network dependency.
 - Visibility: public.
 - License: GPL-3.0-only, matching the source project's public licensing
   boundary while preserving independent ownership of this implementation.
-- Distribution: source and synthetic tests only; users materialize all game UI
-  files from their own installations.
+- Distribution: source plus Studio-only Linux and Windows executables; users
+  materialize all game UI files from their own installations.
 - Studio dependencies: Python standard library plus static browser files.
 - Default canvas: 2560x1440 with an explicit configurable resolution.

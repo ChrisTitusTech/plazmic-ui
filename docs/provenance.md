@@ -17,11 +17,10 @@ At runtime, users may direct the tools to files from their own EverQuest
 Legends installation:
 
 - `uifiles/default_modern`;
-- `uifiles/default/SIDL.xml` as a missing-file fallback;
 - an installed `uifiles/plazmic-ui`; and
 - top-level `UI_*.ini` layouts.
 
-Those inputs and every derived copy stay in ignored local paths. They are not
+Those inputs and every derived copy stay in private local paths. They are not
 part of the project license, Git history, CI, package, review data, or public
 release.
 
@@ -37,9 +36,16 @@ do not reproduce a shipped skin or personal layout.
 
 ## Third-party dependencies
 
-Runtime code uses Python's standard library and system tools. The static Studio
-has no third-party JavaScript or CSS dependency. Contributor and CI tools are
-not redistributed by this repository and retain their own licenses.
+Runtime source uses Python's standard library and system tools. The static
+Studio has no third-party JavaScript or CSS dependency. Release CI uses pinned
+PyInstaller 6.21.0 as a build-time dependency. Published executables contain
+the Python runtime and PyInstaller bootloader components required to start the
+original GPL-3.0-only Studio; they contain no game input. PyInstaller retains
+its GPL-2.0-or-later licensing exception and other applicable notices. Removing
+PyInstaller removes one-file releases but does not affect source execution.
+
+Other contributor and CI tools are not redistributed by this repository and
+retain their own licenses.
 
 EverQuest and its assets are the property of their respective owners. Plazmic
 UI is independent and is not affiliated with or endorsed by Daybreak Game

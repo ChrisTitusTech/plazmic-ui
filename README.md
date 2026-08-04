@@ -2,10 +2,11 @@
 
 [![CI](https://github.com/ChrisTitusTech/plazmic-ui/actions/workflows/ci.yml/badge.svg)](https://github.com/ChrisTitusTech/plazmic-ui/actions/workflows/ci.yml)
 
-Plazmic UI is a public, source-only EverQuest Legends UI toolkit for Linux.
-It creates a local skin from files you already own, previews `UI_*.ini` window
-layouts in a browser Studio, validates EQ XML, and publishes changes with
-rollback backups.
+Plazmic UI is a public EverQuest Legends UI toolkit. It creates a local skin
+from files you already own, previews `UI_*.ini` window layouts in a browser
+Studio, validates EQ XML, and publishes changes with rollback backups. The full
+source workflow targets Linux; the Studio is also released as one-file Linux
+and Windows executables.
 
 The repository contains no EverQuest executable, texture, map, user layout, or
 other Daybreak asset. All copied game files stay in ignored local workspaces.
@@ -30,7 +31,37 @@ other Daybreak asset. All copied game files stay in ignored local workspaces.
 The Studio is a layout mock. It does not reimplement EQ's SIDL renderer or
 display proprietary textures, so the final visual check still happens in game.
 
-## Requirements
+## Download the Studio
+
+The [latest GitHub release](https://github.com/ChrisTitusTech/plazmic-ui/releases/latest)
+contains:
+
+- `plazmic-ui-studio-linux-x86_64`;
+- `plazmic-ui-studio-windows-x86_64.exe`; and
+- `SHA256SUMS` for both files.
+
+On Linux:
+
+```bash
+chmod +x plazmic-ui-studio-linux-x86_64
+./plazmic-ui-studio-linux-x86_64 capture \
+  --game-dir '/path/to/EverQuest Legends'
+./plazmic-ui-studio-linux-x86_64 studio
+```
+
+On Windows PowerShell:
+
+```powershell
+.\plazmic-ui-studio-windows-x86_64.exe capture `
+  --game-dir 'C:\Path\To\EverQuest Legends'
+.\plazmic-ui-studio-windows-x86_64.exe studio
+```
+
+The binaries support `capture`, `studio`, and `publish`. They contain the
+Studio and its Python runtime, not any EverQuest assets. The Linux-only `sync`,
+format, lint, and offline install commands remain in the source workflow.
+
+## Source requirements
 
 - Linux
 - Python 3.11 or newer
@@ -42,7 +73,7 @@ display proprietary textures, so the final visual check still happens in game.
 Contributor checks additionally use Ruff, ShellCheck, shfmt, and
 Markdownlint CLI2.
 
-## Quick start
+## Source quick start
 
 ```bash
 git clone https://github.com/ChrisTitusTech/plazmic-ui.git
@@ -97,6 +128,10 @@ Local screenshots and validation evidence stay in the separate ignored
 
 Do not force-add, publish, package, or attach these files to an issue or
 release. The tool never changes `default` or `default_modern` in place.
+
+Packaged binaries store the same private workspace under the user's local
+application-data directory. Set `PLAZMIC_UI_DATA_DIR` before running a binary
+to select another private storage root.
 
 Plazmic UI is independent and is not affiliated with or endorsed by Daybreak
 Game Company. EverQuest and its assets belong to their respective owners.

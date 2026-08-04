@@ -2,7 +2,9 @@ SHELL := /bin/sh
 
 PYTHON_FILES := \
 	tests/test_plazmic_ui_tools.py \
+	tools/release_version.py \
 	tools/check_repository.py \
+	tools/verify_release_binary.py \
 	ui-tools/apply-improvements.py \
 	ui-tools/format_xml.py \
 	ui-tools/lint-ui.py \
@@ -23,9 +25,10 @@ MARKDOWN_FILES := \
 	SECURITY.md \
 	SPEC.md \
 	TASKS.md \
-	docs/*.md
+	docs/*.md \
+	docs/releases/*.md
 
-.PHONY: help sync refresh capture studio format lint install-dry-run install publish test shellcheck shfmt ruff pycompile markdownlint hygiene check
+.PHONY: help sync refresh capture studio format lint install-dry-run install publish studio-binary test shellcheck shfmt ruff pycompile markdownlint hygiene check
 
 help:
 	@printf '%s\n' \
@@ -37,6 +40,7 @@ help:
 		'  refresh          Rebuild the derived skin with a backup' \
 		'  install-dry-run  Validate the offline install target' \
 		'  install          Install while EverQuest is stopped' \
+		'  studio-binary    Build and verify the local Linux Studio binary' \
 		'  check            Run the complete contributor gate'
 
 sync:
@@ -65,6 +69,13 @@ install:
 
 publish:
 	./plazmic-ui publish
+
+studio-binary:
+	python3 -m PyInstaller --clean --noconfirm plazmic-ui-studio.spec
+	python3 tools/verify_release_binary.py \
+		--platform linux \
+		--version "$$(python3 tools/release_version.py)" \
+		dist/plazmic-ui-studio
 
 test:
 	python3 -m unittest discover -s tests -p 'test_*.py' -v
