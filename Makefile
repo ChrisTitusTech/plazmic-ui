@@ -9,6 +9,10 @@ PYTHON_FILES := \
 	ui-tools/format_xml.py \
 	ui-tools/lint-ui.py \
 	ui-tools/ui_studio.py
+JAVASCRIPT_FILES := \
+	tests/test_studio_model.js \
+	ui-tools/studio/app.js \
+	ui-tools/studio/studio-model.js
 SHELL_FILES := \
 	plazmic-ui \
 	ui-tools/format-ui.sh \
@@ -28,7 +32,7 @@ MARKDOWN_FILES := \
 	docs/*.md \
 	docs/releases/*.md
 
-.PHONY: help sync refresh capture studio format lint install-dry-run install publish studio-binary test shellcheck shfmt ruff pycompile markdownlint hygiene check
+.PHONY: help sync refresh capture studio format lint install-dry-run install publish studio-binary test jscheck shellcheck shfmt ruff pycompile markdownlint hygiene check
 
 help:
 	@printf '%s\n' \
@@ -79,6 +83,12 @@ studio-binary:
 
 test:
 	python3 -m unittest discover -s tests -p 'test_*.py' -v
+	node --test tests/test_studio_model.js
+
+jscheck:
+	@for file in $(JAVASCRIPT_FILES); do \
+		node --check "$$file" || exit 1; \
+	done
 
 shellcheck:
 	shellcheck $(SHELL_FILES)
@@ -101,4 +111,4 @@ hygiene:
 	git diff --check
 	git diff --cached --check
 
-check: shellcheck shfmt ruff pycompile test markdownlint hygiene lint
+check: shellcheck shfmt ruff pycompile jscheck test markdownlint hygiene lint

@@ -1,7 +1,16 @@
 "use strict";
 
 const token = document.querySelector('meta[name="plazmic-token"]').content;
-const state = { data: null, selected: null, drag: null, filter: "", showHidden: false };
+const studioModel = globalThis.PlazmicStudioModel;
+const state = {
+  data: null,
+  selected: null,
+  drag: null,
+  filter: "",
+  showHidden: false,
+  snapEnabled: true,
+  snapSize: 8,
+};
 const fields = {
   xRef: document.querySelector("#x-ref"),
   yRef: document.querySelector("#y-ref"),
@@ -102,6 +111,7 @@ function updateSelectedFromFields() {
   window.values.Fades = fields.fades.checked ? "1" : "0";
   window.visible = fields.visible.checked;
   setPixelPosition(window);
+  renderList();
   renderStage();
   return true;
 }
@@ -140,13 +150,17 @@ function colorFor(name) {
   return `hsl(${Math.abs(hash) % 360} 68% 55%)`;
 }
 
+function isWindowDisplayed(window) {
+  return studioModel.isWindowDisplayed(window, state.filter, state.showHidden);
+}
+
 function renderStage() {
   const stage = document.querySelector("#stage");
   stage.replaceChildren();
   if (!state.data) return;
   const screen = state.data.screen;
   for (const [index, window] of state.data.windows.entries()) {
-    if (!window.visible && !state.showHidden) continue;
+    if (!isWindowDisplayed(window)) continue;
     const element = document.createElement("div");
     element.className = `mock-window${window.section === state.selected ? " selected" : ""}${window.visible ? "" : " hidden-window"}`;
     element.dataset.section = window.section;
@@ -175,10 +189,8 @@ function renderList() {
   const list = document.querySelector("#window-list");
   list.replaceChildren();
   if (!state.data) return;
-  const filter = state.filter.toLowerCase();
   for (const window of state.data.windows) {
-    if (!window.visible && !state.showHidden) continue;
-    if (!window.section.toLowerCase().includes(filter)) continue;
+    if (!isWindowDisplayed(window)) continue;
     const button = document.createElement("button");
     button.textContent = window.section;
     button.className = `${window.section === state.selected ? "active" : ""}${window.visible ? "" : " hidden-window"}`;
@@ -249,13 +261,23 @@ function moveDrag(event) {
   const window = selectedWindow();
   const dx = (event.clientX - state.drag.startClientX) * state.drag.scaleX;
   const dy = (event.clientY - state.drag.startClientY) * state.drag.scaleY;
-  if (state.drag.resize) {
-    window.width = Math.max(16, state.drag.startWidth + dx);
-    window.height = Math.max(16, state.drag.startHeight + dy);
-  } else {
-    window.x = state.drag.startX + dx;
-    window.y = state.drag.startY + dy;
-  }
+  const next = studioModel.applyDrag(
+    {
+      x: state.drag.startX,
+      y: state.drag.startY,
+      width: state.drag.startWidth,
+      height: state.drag.startHeight,
+    },
+    dx,
+    dy,
+    {
+      enabled: state.snapEnabled,
+      bypass: event.altKey,
+      gridSize: state.snapSize,
+      resize: state.drag.resize,
+    },
+  );
+  Object.assign(window, next);
   setPercentPosition(window);
   const screen = state.data.screen;
   event.currentTarget.style.left = `${window.x * 100 / screen.width}%`;
@@ -284,8 +306,15 @@ async function loadXml(filename) {
   }
 }
 
-async function loadState(preferredSelection = null) {
+async function loadState(preferredSelection = null, preservedWindows = null) {
   const data = await api("/api/state");
+  if (preservedWindows && preferredSelection) {
+    data.windows = studioModel.mergeAfterSectionSave(
+      preservedWindows,
+      data.windows,
+      preferredSelection,
+    );
+  }
   state.data = data;
   const layoutName = document.querySelector("#layout-name");
   layoutName.textContent = data.layout;
@@ -302,8 +331,23 @@ async function loadState(preferredSelection = null) {
   renderStage();
 }
 
-document.querySelector("#window-filter").addEventListener("input", (event) => { state.filter = event.target.value; renderList(); });
+document.querySelector("#window-filter").addEventListener("input", (event) => {
+  state.filter = event.target.value;
+  renderList();
+  renderStage();
+});
 document.querySelector("#show-hidden").addEventListener("change", (event) => { state.showHidden = event.target.checked; renderList(); renderStage(); });
+document.querySelector("#snap-enabled").addEventListener("change", (event) => {
+  state.snapEnabled = event.target.checked;
+});
+document.querySelector("#snap-size").addEventListener("change", (event) => {
+  const snapSize = Number.parseInt(event.target.value, 10);
+  if (!Number.isInteger(snapSize) || snapSize < 1 || snapSize > 256) {
+    event.target.value = String(state.snapSize);
+    return;
+  }
+  state.snapSize = snapSize;
+});
 document.querySelector("#xml-file").addEventListener("change", (event) => loadXml(event.target.value));
 for (const field of Object.values(fields)) field.addEventListener("change", updateSelectedFromFields);
 
@@ -321,9 +365,10 @@ document.querySelector("#save-window").addEventListener("click", async () => {
   if (!beginMutation()) return;
   try {
     if (!updateSelectedFromFields()) return;
+    const windowsBeforeSave = state.data.windows;
     const settings = Object.fromEntries(Object.entries(window.values).filter(([key, value]) => value !== "" && ["XRef", "YRef", "XPos", "YPos", "Width", "Height", "Alpha", "FadeToAlpha", "Fades", "Locked", "Show", "BGType", "BGTint.red", "BGTint.green", "BGTint.blue"].includes(key)));
     await api("/api/layout", { method: "POST", body: JSON.stringify({ section: window.section, settings }) });
-    await loadState(window.section);
+    await loadState(window.section, windowsBeforeSave);
     status(`Saved ${window.section} to ${state.data.layout}.`, "success");
   } catch (error) {
     status(error.message, "error");

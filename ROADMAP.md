@@ -161,3 +161,43 @@ without installing Python or cloning the repository.
 If an artifact is invalid, mark the release as affected, publish a corrected
 patch version, and retain the original tag for auditability. Never replace a
 published binary silently.
+
+## Phase 5: Layout interaction improvements
+
+### Outcome
+
+The Studio canvas stays focused while filtering and supports predictable grid
+alignment during drag and resize operations.
+
+### Included work
+
+- Apply the same visibility and case-insensitive name filter to the layout list
+  and mock canvas.
+- Add an enabled-by-default selectable snap grid for moving and resizing.
+- Allow fine positioning by disabling snapping or holding Alt while dragging.
+- Add deterministic frontend model tests and update the user workflow.
+
+### Dependencies and risks
+
+- Snapping changes only unsaved browser state until the user explicitly saves
+  the selected INI section.
+- The canvas remains a layout mock and cannot prove exact in-game rendering.
+
+### Exit criteria
+
+- AC-12 passes in automated model tests and a visible Studio smoke test.
+- The complete repository gate and independent review complete without an
+  unresolved critical or warning finding.
+
+### Validation
+
+- Exercise matching, nonmatching, and hidden filters against list and canvas.
+- Exercise move and resize at every grid size, with snapping disabled, and with
+  Alt held.
+- Run `make check` and retain an ignored screenshot under `captures/`.
+
+### Rollback
+
+Revert the frontend model and controls. No workspace migration or INI rollback
+is required because the new controls do not write until the existing save
+action is used.

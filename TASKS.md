@@ -5,6 +5,19 @@ skipped live checks and residual risk rather than marking them complete.
 
 ## Current phase
 
+### S-02: Improve Studio layout interactions
+
+- [x] Hide nonmatching mock windows when the layout list is filtered.
+- [x] Add selectable grid snapping for move and resize with an Alt bypass.
+- [x] Preserve unsaved sibling positions when one window section is saved.
+- [x] Add deterministic frontend coverage and update user documentation.
+- [x] Pass visible Studio validation, the complete gate, and review.
+- Acceptance criteria: AC-12 and the Phase 5 exit criteria.
+- Automated validation: Node model tests, JavaScript syntax checks, Python
+  tests, and `make check`.
+- Manual validation: confirm filter and snap behavior with ignored local data
+  and retain a public-safe screenshot under ignored `captures/`.
+
 ### P-01: Package and publish Studio 0.1.0
 
 - [x] Make Studio resources and private storage work in frozen applications.
@@ -77,3 +90,15 @@ diagnostics on native GitHub runners; the downloaded Linux release also served
 the ignored local workspace successfully. Native Windows browser/game
 interaction was not available for manual testing, and the first Windows binary
 is not Authenticode-signed, as documented in the release notes.
+
+Studio layout interaction improvements now apply one filter predicate to the
+window list and canvas and provide selectable grid snapping with an Alt bypass.
+Saving one section also preserves unsaved sibling geometry in the browser.
+Synthetic browser validation passed at 1920x1080, the ignored practice capture
+is `captures/plazmic-ui-studio-snapping.png`, and the packaged Linux diagnostic
+contains the new frontend model. Live game validation was not required because
+the feature does not write until the existing explicit save action is used.
+The follow-up review found one minor snap-selector validation gap, which was
+fixed and covered by the complete gate. A final confirmation review was
+rate-limited; targeted browser regression, syntax, static, hygiene, and full
+test gates passed on the exact staged diff.

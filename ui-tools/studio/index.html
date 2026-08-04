@@ -35,9 +35,21 @@
 
       <section class="stage-column">
         <div class="stage-toolbar">
-          <span>Mock canvas</span>
-          <span id="screen-size">2560 x 1440</span>
-          <span>Drag to move. Drag the corner to resize.</span>
+          <div class="stage-meta">
+            <strong>Mock canvas</strong>
+            <span id="screen-size">2560 x 1440</span>
+          </div>
+          <div class="stage-controls">
+            <label class="toggle"><input id="snap-enabled" type="checkbox" checked> Snap</label>
+            <label for="snap-size">Grid</label>
+            <select id="snap-size">
+              <option value="4">4 px</option>
+              <option value="8" selected>8 px</option>
+              <option value="16">16 px</option>
+              <option value="32">32 px</option>
+            </select>
+          </div>
+          <span class="stage-help">Drag to move. Drag the corner to resize. Hold Alt for free movement.</span>
         </div>
         <div id="stage-shell">
           <div id="stage" aria-label="Mock EverQuest window layout canvas"></div>
@@ -83,6 +95,7 @@
       </aside>
     </main>
 
+    <script src="studio-model.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

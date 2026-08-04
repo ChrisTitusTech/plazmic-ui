@@ -512,6 +512,15 @@ class UiStudioTests(unittest.TestCase):
             thread.start()
             connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=5)
             try:
+                connection.request("GET", "/studio-model.js")
+                response = connection.getresponse()
+                self.assertEqual(response.status, 200)
+                self.assertEqual(
+                    response.getheader("Content-Type"),
+                    "text/javascript; charset=utf-8",
+                )
+                self.assertIn(b"isWindowDisplayed", response.read())
+
                 connection.request("GET", "/api/state")
                 response = connection.getresponse()
                 self.assertEqual(response.status, 403)

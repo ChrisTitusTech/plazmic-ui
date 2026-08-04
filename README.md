@@ -19,8 +19,11 @@ other Daybreak asset. All copied game files stay in ignored local workspaces.
   shipped skin.
 - Shows window bounds and alpha on a configurable canvas, defaulting to
   2560x1440.
-- Supports selection, drag, resize, anchors, percentage positions, visibility,
-  alpha, fade, lock, background type, and tint.
+- Supports selection, drag, resize, configurable grid snapping, anchors,
+  percentage positions, visibility, alpha, fade, lock, background type, and
+  tint.
+- Filters the layout list and mock canvas together so unrelated windows stay
+  out of the way while editing.
 - Opens and validates top-level EQ interface XML without a web dependency or
   external service.
 - Preserves unrelated INI content and creates timestamped backups before every

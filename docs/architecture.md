@@ -58,6 +58,18 @@ Positions use the Legends percentage anchor model:
 Window size comes from the layout when present, then from a matching top-level
 `EQUI_*.xml` screen, and finally from a conservative mock default.
 
+The frontend keeps filtering and drag geometry in a small dependency-free
+model shared by the layout list and canvas. Moving snaps the mock window's
+top-left corner to the selected grid. Resizing keeps the top-left corner fixed
+and snaps the lower-right edge. The browser converts the resulting pixels back
+to the existing anchored percentage model; no INI write occurs until the user
+selects the save action.
+
+After a section save, the Studio reloads that section from disk but merges it
+with the current in-browser state for every sibling window. This keeps unsaved
+sibling placements from jumping back while retaining the saved section as the
+server-authoritative result.
+
 ## XML model
 
 The formatter changes line endings, indentation, and trailing whitespace only.

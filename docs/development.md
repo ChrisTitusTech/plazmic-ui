@@ -14,8 +14,9 @@ Contributor dependencies:
 
 - Ruff 0.15.21;
 - ShellCheck 0.11 or newer;
-- shfmt 3.10 or newer; and
-- Markdownlint CLI2 0.23.x.
+- shfmt 3.10 or newer;
+- Markdownlint CLI2 0.23.x; and
+- Node.js 20 or newer for dependency-free frontend model tests.
 
 Release builds additionally pin PyInstaller 6.21.0. PyInstaller must run on
 each target operating system; it is not used by normal source execution.
@@ -34,6 +35,7 @@ make shellcheck
 make shfmt
 make ruff
 make pycompile
+make jscheck
 make markdownlint
 make hygiene
 make check
@@ -55,7 +57,9 @@ No fixture comes from EverQuest. Coverage includes:
 - XML/settings validation;
 - transactional publish rollback;
 - Host, token, Origin, and body-size server checks; and
-- CLI dispatch and shell failure paths.
+- CLI dispatch and shell failure paths;
+- shared window filtering for the list and mock canvas; and
+- snapped move/resize geometry, disabled snapping, and Alt bypass behavior.
 
 Add a regression test for every behavior fix. Prefer a temporary filesystem
 over mocks; use a narrow mock only to force an otherwise impractical failure.
@@ -72,12 +76,14 @@ browser when capturing through an isolated browser profile:
 Verify at minimum:
 
 1. The layout list and canvas populate.
-2. Hidden-window filtering works.
+2. Window-name and hidden-window filtering affect both list and canvas.
 3. Selection works from the list and canvas.
-4. Drag, resize, field editing, and save create a backup.
-5. XML open, invalid-save rejection, and valid save work.
-6. Publish confirmation names the selected target.
-7. A 1920x1080 screenshot contains no personal path or character data.
+4. Drag and resize snap at every grid size; disabling Snap or holding Alt
+   allows free positioning.
+5. Field editing and save create a backup.
+6. XML open, invalid-save rejection, and valid save work.
+7. Publish confirmation names the selected target.
+8. A 1920x1080 screenshot contains no personal path or character data.
 
 ## Review and release gate
 

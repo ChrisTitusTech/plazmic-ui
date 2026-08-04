@@ -66,7 +66,9 @@ jobs:
           ui-tools/ui_studio.py
 
       - name: Run synthetic tests
-        run: python -m unittest discover -s tests -p "test_*.py" -v
+        run: |
+          python -m unittest discover -s tests -p "test_*.py" -v
+          node --test tests/test_studio_model.js
 
       - name: Install Linux source-gate tools
         if: matrix.platform == 'linux'

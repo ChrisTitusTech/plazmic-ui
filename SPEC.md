@@ -42,11 +42,16 @@ game process, or a patched skin whose XML differs from the reviewed baseline.
 - Require an unguessable per-process token for every API request.
 - Preview editable INI sections on a configurable screen canvas, defaulting to
   2560x1440, using Legends left/center/right and top/center/bottom anchors.
-- List visible windows, optionally include hidden windows, select, drag,
-  resize, and edit supported position, size, visibility, alpha, fade, lock,
-  background type, and tint fields.
+- List visible windows, optionally include hidden windows, and apply the window
+  name filter to both the list and mock canvas.
+- Select, drag, resize, and edit supported position, size, visibility, alpha,
+  fade, lock, background type, and tint fields.
+- Snap drag and resize operations to a selectable 4, 8, 16, or 32 pixel grid,
+  defaulting to 8 pixels, with a visible toggle and temporary Alt-key bypass.
 - Preserve unrelated INI sections, keys, comments, byte encoding, and newline
   style when saving one section.
+- Preserve unsaved in-browser positions and sizes for every other window when
+  saving and reloading one selected section.
 - Open only top-level non-symlink XML files from the local skin workspace.
 - Save only US-ASCII, well-formed EQ interface XML after validation.
 - Back up every replaced local INI or XML file and use atomic replacement.
@@ -171,6 +176,10 @@ renders the editor; it has no build step and no external network dependency.
 - AC-11: The first release provides verified Linux ELF and Windows PE x86-64
   Studio executables, matching version output, embedded frontend files,
   SHA-256 checksums, and no game or personal assets.
+- AC-12: Layout filtering hides nonmatching windows from both Studio views,
+  and enabled move/resize snapping follows the selected grid while disabled or
+  Alt-bypassed dragging remains unsnapped. Saving one section does not reset
+  unsaved canvas changes for other windows.
 
 ## Resolved decisions
 

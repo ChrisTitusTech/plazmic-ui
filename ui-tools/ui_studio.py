@@ -52,6 +52,12 @@ EDITABLE_KEYS = {
     "BGTint.green",
     "BGTint.blue",
 }
+STATIC_CONTENT_TYPES = {
+    "index.html": "text/html; charset=utf-8",
+    "studio-model.js": "text/javascript; charset=utf-8",
+    "app.js": "text/javascript; charset=utf-8",
+    "style.css": "text/css; charset=utf-8",
+}
 
 
 def frozen_application() -> bool:
@@ -824,7 +830,7 @@ class StudioHandler(BaseHTTPRequestHandler):
             return
 
         filename = "index.html" if parsed.path in {"", "/"} else parsed.path[1:]
-        if filename not in {"index.html", "app.js", "style.css"}:
+        if filename not in STATIC_CONTENT_TYPES:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         path = self.server.static_dir / filename
@@ -835,11 +841,7 @@ class StudioHandler(BaseHTTPRequestHandler):
             return
         if filename == "index.html":
             contents = contents.replace(b"__PLAZMIC_TOKEN__", self.server.token.encode("ascii"))
-        content_type = {
-            "index.html": "text/html; charset=utf-8",
-            "app.js": "text/javascript; charset=utf-8",
-            "style.css": "text/css; charset=utf-8",
-        }[filename]
+        content_type = STATIC_CONTENT_TYPES[filename]
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(contents)))
@@ -964,9 +966,7 @@ def main() -> int:
     static_dir = static_directory(script_dir)
     try:
         if args.command == "diagnose":
-            if not all(
-                (static_dir / name).is_file() for name in ("index.html", "app.js", "style.css")
-            ):
+            if not all((static_dir / name).is_file() for name in STATIC_CONTENT_TYPES):
                 raise ValueError("Studio frontend files are missing from this installation")
             print(f"{APPLICATION_NAME} {VERSION}: frontend bundle is ready")
             return 0
@@ -996,9 +996,7 @@ def main() -> int:
 
         paths = resolve_paths(args, repo)
         if args.command in {"serve", "studio"}:
-            if not all(
-                (static_dir / name).is_file() for name in ("index.html", "app.js", "style.css")
-            ):
+            if not all((static_dir / name).is_file() for name in STATIC_CONTENT_TYPES):
                 raise ValueError("Studio frontend files are missing from this installation")
             serve(paths, static_dir, args.port, not args.no_browser)
             return 0

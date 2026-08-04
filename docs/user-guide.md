@@ -121,12 +121,22 @@ in ignored local configuration.
 ### Window tab
 
 - Select a layout section from the left list.
+- Type in **Filter windows** to hide nonmatching sections from both the list and
+  mock canvas.
 - Enable **Show hidden** to inspect sections whose `Show` value is `0`.
-- Drag a mock window to update its anchored percentage position.
-- Drag the lower-right handle to update width and height.
+- Leave **Snap** enabled to align movement and resizing to the selected 4, 8,
+  16, or 32 pixel grid. The default is 8 pixels.
+- Drag a mock window to update its anchored percentage position. Hold Alt while
+  dragging to bypass snapping temporarily.
+- Drag the lower-right handle to update width and height; Alt also bypasses
+  snapping while resizing.
 - Edit anchors, percentage positions, size, alpha, fade alpha, background type,
   tint, visibility, lock, and fade values in the right inspector.
 - Click **Save window settings** to replace only supported keys in that section.
+
+Saving one window keeps unsaved placements for the other windows visible on the
+canvas. Those placements remain browser-only until each window is selected and
+saved separately.
 
 Unknown sections, keys, comments, encoding, and CRLF/LF newline style are
 preserved. Each save creates an ignored backup before atomic replacement.
