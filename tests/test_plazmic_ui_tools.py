@@ -585,16 +585,19 @@ class CliTests(unittest.TestCase):
             "Plazmic UI Studio 0.1.0: frontend bundle is ready",
         )
 
+    @unittest.skipIf(os.name == "nt", "POSIX shell entrypoint is Linux-only")
     def test_unknown_command_fails_with_help(self) -> None:
         result = subprocess.run(
             [ROOT / "plazmic-ui", "unknown"],
             check=False,
             capture_output=True,
             text=True,
+            timeout=10,
         )
         self.assertEqual(result.returncode, 2)
         self.assertIn("Unknown command", result.stderr)
 
+    @unittest.skipIf(os.name == "nt", "POSIX install script is Linux-only")
     def test_install_dry_run_rejects_workspace_symlink(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -623,6 +626,7 @@ class CliTests(unittest.TestCase):
                 check=False,
                 capture_output=True,
                 text=True,
+                timeout=10,
             )
             self.assertEqual(result.returncode, 1)
             self.assertIn("contains a symlink", result.stderr)
