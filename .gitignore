@@ -1,0 +1,28 @@
+# Private local EverQuest UI data
+/.plazmic-ui-workspace/
+/plazmic-ui/
+/plazmic-ui.backup-*/
+/plazmic-ui.staging.*/
+/ui-layouts/
+/ui-backups/
+/.plazmic-ui-studio.json
+/.plazmic-ui.capture.*/
+
+# Local renders and evidence
+/captures/
+/logs/
+*.log
+*.dmp
+
+# Python and tooling caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+*~

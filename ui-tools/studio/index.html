@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="plazmic-token" content="__PLAZMIC_TOKEN__">
+    <title>Plazmic UI Studio</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <span class="eyebrow">EverQuest Legends</span>
+        <h1>Plazmic UI Studio</h1>
+      </div>
+      <div class="publish">
+        <label for="target-ini">Write into</label>
+        <select id="target-ini"></select>
+        <button id="publish-button" class="primary" type="button">Publish to game</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="window-browser panel">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Layout windows</span>
+            <strong id="layout-name">Loading...</strong>
+          </div>
+          <label class="toggle"><input id="show-hidden" type="checkbox"> Show hidden</label>
+        </div>
+        <input id="window-filter" type="search" placeholder="Filter windows">
+        <div id="window-list" class="window-list"></div>
+      </aside>
+
+      <section class="stage-column">
+        <div class="stage-toolbar">
+          <span>Mock canvas</span>
+          <span id="screen-size">2560 x 1440</span>
+          <span>Drag to move. Drag the corner to resize.</span>
+        </div>
+        <div id="stage-shell">
+          <div id="stage" aria-label="Mock EverQuest window layout canvas"></div>
+        </div>
+        <div id="status" role="status" aria-live="polite">Loading the local workspace...</div>
+      </section>
+
+      <aside class="inspector panel">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="window-panel" type="button" role="tab" aria-controls="window-panel" aria-selected="true">Window</button>
+          <button class="tab" data-tab="xml-panel" type="button" role="tab" aria-controls="xml-panel" aria-selected="false">XML</button>
+        </div>
+
+        <section id="window-panel" class="tab-panel active">
+          <h2 id="selected-name">Select a window</h2>
+          <div class="form-grid">
+            <label>X anchor<select id="x-ref"><option>left</option><option>center</option><option>right</option></select></label>
+            <label>Y anchor<select id="y-ref"><option>top</option><option>center</option><option>bottom</option></select></label>
+            <label>X position %<input id="x-pos" type="number" step="0.01"></label>
+            <label>Y position %<input id="y-pos" type="number" step="0.01"></label>
+            <label>Width px<input id="width" type="number" min="1" max="8192"></label>
+            <label>Height px<input id="height" type="number" min="1" max="8192"></label>
+            <label>Alpha<input id="alpha" type="number" min="0" max="255"></label>
+            <label>Fade alpha<input id="fade-alpha" type="number" min="0" max="255"></label>
+            <label>Background type<input id="bg-type" type="number" min="0" max="3"></label>
+            <label class="color-label">Background tint<input id="bg-color" type="color"></label>
+          </div>
+          <div class="checks">
+            <label><input id="visible" type="checkbox"> Show</label>
+            <label><input id="locked" type="checkbox"> Locked</label>
+            <label><input id="fades" type="checkbox"> Fades</label>
+          </div>
+          <button id="save-window" class="primary full" type="button">Save window settings</button>
+          <p class="hint">Saving updates only this INI section and creates a local backup.</p>
+        </section>
+
+        <section id="xml-panel" class="tab-panel">
+          <label>XML file<select id="xml-file"></select></label>
+          <textarea id="xml-source" spellcheck="false" aria-label="XML source"></textarea>
+          <button id="save-xml" class="primary full" type="button">Validate and save XML</button>
+          <p class="hint">XML stays US-ASCII and must remain well formed. Every save is backed up.</p>
+        </section>
+      </aside>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

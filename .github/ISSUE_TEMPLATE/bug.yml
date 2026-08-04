@@ -1,0 +1,56 @@
+---
+name: Bug report
+description: Report a reproducible Plazmic UI problem without private game data.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Do not put private UI assets, personal UI_*.ini contents, game paths,
+        account data, character names, logs, crash dumps, or credentials in
+        this issue, its comments, or attachments.
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      placeholder: git rev-parse --short HEAD
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Linux distribution, Python version, browser, and Wine runner.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and redacted output
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: >-
+            I removed private UI assets, personal UI INIs, game paths, account
+            data, character names, logs, crash dumps, and credentials from the
+            issue, comments, and attachments.
+          required: true
