@@ -1,14 +1,42 @@
 "use strict";
 
 (function initializeStudioModel(root) {
+  const DEFAULT_GRID_SIZE = 16;
+
   function normalizeGridSize(value) {
     const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed >= 1 && parsed <= 256 ? parsed : 8;
+    return Number.isInteger(parsed) && parsed >= 1 && parsed <= 256
+      ? parsed
+      : DEFAULT_GRID_SIZE;
   }
 
   function snapValue(value, gridSize) {
     const size = normalizeGridSize(gridSize);
     return Math.round(value / size) * size;
+  }
+
+  function anchoredPosition(reference, percent, size, extent) {
+    const offsetExtent = reference === "center" ? extent / 2 : extent;
+    const offset = offsetExtent * percent / 100;
+    if (reference === "right" || reference === "bottom") {
+      return extent - offset - size;
+    }
+    if (reference === "center") return extent / 2 + offset - size / 2;
+    return offset;
+  }
+
+  function positionPercent(reference, position, size, extent) {
+    if (reference === "right" || reference === "bottom") {
+      return (extent - position - size) * 100 / extent;
+    }
+    if (reference === "center") {
+      return (position + size / 2 - extent / 2) * 100 / (extent / 2);
+    }
+    return position * 100 / extent;
+  }
+
+  function emptySelection() {
+    return { primary: null, sections: new Set() };
   }
 
   function applyDrag(start, dx, dy, options = {}) {
@@ -138,12 +166,16 @@
   }
 
   const model = Object.freeze({
+    DEFAULT_GRID_SIZE,
+    anchoredPosition,
     applyDrag,
     applyGroupDrag,
     applyGroupLayout,
+    emptySelection,
     isWindowDisplayed,
     mergeAfterSectionSave,
     mergeAfterSectionsSave,
+    positionPercent,
     snapValue,
   });
   root.PlazmicStudioModel = model;

@@ -3,12 +3,16 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
+  DEFAULT_GRID_SIZE,
+  anchoredPosition,
   applyDrag,
   applyGroupDrag,
   applyGroupLayout,
+  emptySelection,
   isWindowDisplayed,
   mergeAfterSectionSave,
   mergeAfterSectionsSave,
+  positionPercent,
   snapValue,
 } = require("../ui-tools/studio/studio-model.js");
 
@@ -16,7 +20,25 @@ test("snapValue rounds to the nearest grid line", () => {
   assert.equal(snapValue(11, 8), 8);
   assert.equal(snapValue(13, 8), 16);
   assert.equal(snapValue(-5, 8), -8);
-  assert.equal(snapValue(13, Number.NaN), 16);
+  assert.equal(DEFAULT_GRID_SIZE, 16);
+  assert.equal(snapValue(24, Number.NaN), 32);
+});
+
+test("BagInv8 center anchor remains stable across serialization", () => {
+  const x = anchoredPosition("center", -9.980500, 97, 2560);
+  const y = anchoredPosition("top", 17.777800, 195, 1440);
+
+  assert.equal(x, 1103.7496);
+  assert.equal(y, 256.00032);
+  assert.equal(positionPercent("center", x, 97, 2560).toFixed(6), "-9.980500");
+  assert.equal(positionPercent("top", y, 195, 1440).toFixed(6), "17.777800");
+});
+
+test("empty selection clears both primary and grouped sections", () => {
+  const selection = emptySelection();
+
+  assert.equal(selection.primary, null);
+  assert.equal(selection.sections.size, 0);
 });
 
 test("moving snaps the top-left corner and preserves the size", () => {

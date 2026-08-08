@@ -38,6 +38,11 @@ an external network request. The browser Studio exchanges copied content only
 with its loopback server on `127.0.0.1`; that local traffic never leaves the
 host.
 
+The top-right game-layout selector also supports a reverse layout-only flow.
+**Load from game** reads one selected top-level `UI_*.ini`, verifies that it
+remained stable during the read, backs up the current workspace layout, and
+replaces only that ignored local file. It never writes to the game.
+
 Release CI builds on Linux and Windows separately, runs the synthetic test
 suite, verifies the executable format and version, and asks the executable to
 validate its embedded frontend before it can become a release asset.
@@ -54,6 +59,11 @@ Positions use the Legends percentage anchor model:
 - left/top: percentage offset from the leading edge;
 - right/bottom: percentage offset from the trailing edge; and
 - center: percentage offset from the canvas center after accounting for size.
+
+Center anchors use half of the canvas extent for their percentage scale in
+both directions. The Python loader and shared frontend model use the same
+conversion and retain six decimal places so selecting and saving an unchanged
+window does not move it.
 
 Window size comes from the layout when present, then from a matching top-level
 `EQUI_*.xml` screen, and finally from a conservative mock default.
@@ -75,6 +85,8 @@ layout references. Group drag snaps the primary once and applies the same pixel
 delta to every selected window, preserving relative offsets. Match, align, and
 distribution operations run in the same frontend model as single-window
 geometry, then convert each result back to its own anchor percentages.
+The group toolbar is visible only for multiple selections; **Deselect all**
+clears both the group and primary selection without changing layout data.
 
 The batch layout endpoint accepts a bounded list of unique section updates,
 validates every setting before writing, verifies every named section appears
@@ -89,6 +101,9 @@ XML, root element `XML`, and root ID `EQInterfaceDefinitionLanguage`.
 
 XML filenames must be top-level regular `.xml` files whose resolved parent is
 the materialized skin root. Symlinks and files above 10 MiB are rejected.
+`EQUI.xml` is excluded from the Studio editor because it is the skin manifest,
+not a window definition. Capture, lint, install, and publish require it to have
+one top-level `Composite` containing `Include` entries before any skin copy.
 
 ## Server boundary
 

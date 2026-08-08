@@ -125,7 +125,7 @@ in ignored local configuration.
   mock canvas.
 - Enable **Show hidden** to inspect sections whose `Show` value is `0`.
 - Leave **Snap** enabled to align movement and resizing to the selected 4, 8,
-  16, or 32 pixel grid. The default is 8 pixels.
+  16, or 32 pixel grid. The default is 16 pixels.
 - Drag a mock window to update its anchored percentage position. Hold Alt while
   dragging to bypass snapping temporarily.
 - Drag the lower-right handle to update width and height; Alt also bypasses
@@ -138,6 +138,8 @@ in ignored local configuration.
   **Align top** to copy the corresponding primary edge.
 - With three or more selected windows, use **Space across** or **Space down**
   to distribute the windows with equal gaps across their current outer span.
+- Use **Deselect all** to clear the group and primary selection. It appears
+  only while multiple windows are selected.
 - Edit anchors, percentage positions, size, alpha, fade alpha, background type,
   tint, visibility, lock, and fade values in the right inspector.
 - Click **Save window settings** to replace only supported keys in that section.
@@ -150,12 +152,27 @@ saved separately or included in **Save selected**.
 
 Unknown sections, keys, comments, encoding, and CRLF/LF newline style are
 preserved. Each save creates an ignored backup before atomic replacement.
+Center-anchored positions retain their six-decimal percentage precision across
+an unchanged save.
+
+### Load and save the selected game layout
+
+The top-right **Game layout** selector is shared by two explicit actions:
+
+- **Load from game** discards unsaved browser positions and replaces the
+  current Studio layout with the selected live `UI_*.ini`. It backs up the
+  local Studio layout first and does not modify the game file.
+- **Save to game** is the existing publish operation. After confirmation, it
+  validates and backs up the skin and selected game layout before replacing
+  them with the Studio workspace.
 
 ### XML tab
 
 Choose a top-level skin XML file, edit its source, then click
 **Validate and save XML**. The Studio requires US-ASCII, well-formed XML with
-the EQ interface root. Nested paths and symlinks are not editable.
+the EQ interface root. Nested paths and symlinks are not editable. The main
+`EQUI.xml` skin manifest is deliberately excluded from the editor and is
+validated again before capture or publish.
 
 ## Validate and publish
 

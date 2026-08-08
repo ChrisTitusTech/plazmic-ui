@@ -148,11 +148,37 @@ def lint_directory(ui_dir: Path, *, check_format: bool) -> tuple[list[Finding], 
     if equi_root is None:
         findings.append(Finding(equi_path, "missing or invalid EQUI.xml"))
     else:
-        includes = [
-            (element.text or "").strip()
-            for element in equi_root.iter()
-            if local_name(element.tag) == "Include"
-        ]
+        top_level_names = [local_name(element.tag) for element in equi_root]
+        composites = [element for element in equi_root if local_name(element.tag) == "Composite"]
+        if len(composites) != 1:
+            findings.append(
+                Finding(
+                    equi_path,
+                    "must contain exactly one top-level Composite manifest; "
+                    f"found {len(composites)}",
+                )
+            )
+        unexpected = sorted(
+            {name for name in top_level_names if name not in {"Composite", "Schema"}}
+        )
+        if unexpected:
+            findings.append(
+                Finding(
+                    equi_path,
+                    f"contains unexpected top-level elements: {', '.join(unexpected)}",
+                )
+            )
+        includes = (
+            [
+                (element.text or "").strip()
+                for element in composites[0].iter()
+                if local_name(element.tag) == "Include"
+            ]
+            if len(composites) == 1
+            else []
+        )
+        if len(composites) == 1 and not includes:
+            findings.append(Finding(equi_path, "Composite manifest contains no Include entries"))
         available_paths = sorted(ui_dir.glob("*.xml"))
         available_names: dict[str, Path] = {}
         for candidate in available_paths:

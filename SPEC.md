@@ -47,21 +47,33 @@ game process, or a patched skin whose XML differs from the reviewed baseline.
 - Select, drag, resize, and edit supported position, size, visibility, alpha,
   fade, lock, background type, and tint fields.
 - Snap drag and resize operations to a selectable 4, 8, 16, or 32 pixel grid,
-  defaulting to 8 pixels, with a visible toggle and temporary Alt-key bypass.
+  defaulting to 16 pixels, with a visible toggle and temporary Alt-key bypass.
 - Select multiple windows with Shift-click from the canvas or list, retain one
   primary selection for the inspector, and move the selected group without
   changing its internal spacing.
+- Show an explicit **Deselect all** action while multiple windows are selected
+  and clear both the group and primary selection when it is used.
 - Make selected windows consistent through explicit match-size, edge-alignment,
   and equal horizontal or vertical distribution actions.
 - Save every selected window in one atomic INI replacement and one backup while
   preserving unrelated sections and unsaved nonselected browser state.
 - Preserve unrelated INI sections, keys, comments, byte encoding, and newline
   style when saving one section.
+- Preserve the six-decimal anchor position and the center-anchor half-canvas
+  extent across an unchanged save.
 - Preserve unsaved in-browser positions and sizes for every other window when
   saving and reloading one selected section.
-- Open only top-level non-symlink XML files from the local skin workspace.
+- Open only top-level non-symlink window XML files from the local skin
+  workspace; reserve `EQUI.xml` as a non-editable skin manifest.
 - Save only US-ASCII, well-formed EQ interface XML after validation.
+- Require `EQUI.xml` to contain exactly one top-level `Composite` manifest with
+  at least one `Include` before capture, lint, install, or publish succeeds.
 - Back up every replaced local INI or XML file and use atomic replacement.
+- Pair the top-right game-layout selector with explicit **Load from game** and
+  **Save to game** actions. Loading replaces only the current workspace layout
+  after a backup and stable descriptor read; it rejects symlinks, path escapes,
+  oversized or empty files, and sources that change while being read. Saving
+  retains the transactional publish behavior below.
 - Run from source or from one-file x86-64 Linux and Windows release binaries.
 - Store packaged-app workspaces in the user's local application-data directory,
   with an explicit environment override for portable or test use.
@@ -190,6 +202,10 @@ renders the editor; it has no build step and no external network dependency.
 - AC-13: Shift-click multi-selection works from canvas and list, group dragging
   preserves relative offsets, group layout actions produce deterministic
   geometry, and one batch save persists all selected sections atomically.
+- AC-14: The selected game layout can be loaded into the Studio workspace with
+  a local backup and no game write after rejecting symlinks, path escapes,
+  oversized or empty files, and unstable reads, while the paired save action
+  remains an explicit confirmed publish.
 
 ## Resolved decisions
 

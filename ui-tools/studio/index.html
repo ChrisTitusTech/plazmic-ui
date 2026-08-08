@@ -14,9 +14,10 @@
         <h1>Plazmic UI Studio</h1>
       </div>
       <div class="publish">
-        <label for="target-ini">Write into</label>
+        <label for="target-ini">Game layout</label>
         <select id="target-ini"></select>
-        <button id="publish-button" class="primary" type="button">Publish to game</button>
+        <button id="load-button" type="button">Load from game</button>
+        <button id="publish-button" class="primary" type="button">Save to game</button>
       </div>
     </header>
 
@@ -44,8 +45,8 @@
             <label for="snap-size">Grid</label>
             <select id="snap-size">
               <option value="4">4 px</option>
-              <option value="8" selected>8 px</option>
-              <option value="16">16 px</option>
+              <option value="8">8 px</option>
+              <option value="16" selected>16 px</option>
               <option value="32">32 px</option>
             </select>
           </div>
@@ -58,6 +59,7 @@
           <button type="button" data-group-action="align-top">Align top</button>
           <button type="button" data-group-action="distribute-horizontal">Space across</button>
           <button type="button" data-group-action="distribute-vertical">Space down</button>
+          <button id="deselect-all" type="button">Deselect all</button>
           <button id="save-selected" class="primary" type="button">Save selected</button>
         </div>
         <div id="stage-shell">

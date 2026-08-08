@@ -131,6 +131,23 @@ class LintTests(unittest.TestCase):
 
             self.assertTrue(any("missing included file" in item.message for item in findings))
 
+    def test_linter_rejects_window_xml_as_main_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            ui_dir = Path(temp_dir)
+            (ui_dir / "EQUI.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Editbox /></XML>\n',
+                encoding="us-ascii",
+            )
+
+            findings, _ = lint_ui.lint_directory(ui_dir, check_format=False)
+
+            self.assertTrue(
+                any("top-level Composite manifest" in item.message for item in findings)
+            )
+            self.assertTrue(
+                any("unexpected top-level elements: Editbox" in item.message for item in findings)
+            )
+
     def test_linter_rejects_symlinks(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             ui_dir = Path(temp_dir)
@@ -357,6 +374,12 @@ class UiStudioTests(unittest.TestCase):
             percent = ui_studio.position_percent(reference, position, 336, 2560)
             self.assertAlmostEqual(percent, 13.25)
 
+    def test_center_anchor_percent_uses_half_screen_extent(self) -> None:
+        position = ui_studio.anchored_position("center", 25.0, 100, 1000)
+
+        self.assertEqual(position, 575.0)
+        self.assertEqual(ui_studio.position_percent("center", position, 100, 1000), 25.0)
+
     def test_resolution_validation_and_state(self) -> None:
         self.assertEqual(ui_studio.parse_resolution(None), (2560, 1440))
         self.assertEqual(ui_studio.parse_resolution("1920x1080"), (1920, 1080))
@@ -374,6 +397,11 @@ class UiStudioTests(unittest.TestCase):
             ui_studio.validate_xml("<XML>")
         with self.assertRaisesRegex(ValueError, "root ID"):
             ui_studio.validate_xml("<XML />")
+        with self.assertRaisesRegex(ValueError, "top-level Composite manifest"):
+            ui_studio.validate_xml(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Editbox /></XML>',
+                filename="EQUI.xml",
+            )
 
     def test_capture_and_publish_copy_private_files_with_backups(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -385,6 +413,11 @@ class UiStudioTests(unittest.TestCase):
             repo.mkdir()
             (game / "eqgame.exe").write_bytes(b"client")
             (installed_skin / "EQUI.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Composite>'
+                "<Include>EQUI_Window.xml</Include></Composite></XML>\n",
+                encoding="ascii",
+            )
+            (installed_skin / "EQUI_Window.xml").write_text(
                 '<XML ID="EQInterfaceDefinitionLanguage" />\n', encoding="ascii"
             )
             (installed_skin / "texture.tga").write_bytes(b"asset")
@@ -430,6 +463,116 @@ class UiStudioTests(unittest.TestCase):
             self.assertNotIn(str(root), " ".join(result.values()))
             shutil.rmtree(skin_backup)
 
+    def test_publish_rejects_window_xml_as_manifest_before_game_write(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            game = root / "game"
+            skin = root / "skin"
+            layouts = root / "layouts"
+            game.mkdir()
+            skin.mkdir()
+            layouts.mkdir()
+            (game / "eqgame.exe").write_bytes(b"client")
+            target_layout = game / "UI_example.ini"
+            target_layout.write_bytes(b"[Main]\nAlpha=255\n")
+            local_layout = layouts / target_layout.name
+            local_layout.write_bytes(b"[Main]\nAlpha=180\n")
+            (skin / "EQUI.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Editbox /></XML>\n',
+                encoding="us-ascii",
+            )
+            paths = ui_studio.StudioPaths(
+                repo=root,
+                skin=skin,
+                layouts=layouts,
+                backups=root / "backups",
+                config=root / "studio.json",
+                game=game,
+                layout=local_layout,
+            )
+
+            with self.assertRaisesRegex(ValueError, "top-level Composite manifest"):
+                ui_studio.publish_workspace(paths, target_layout.name)
+
+            self.assertEqual(target_layout.read_bytes(), b"[Main]\nAlpha=255\n")
+            self.assertFalse((game / "uifiles" / "plazmic-ui").exists())
+
+    def test_load_from_game_replaces_only_workspace_layout_with_backup(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            game = root / "game"
+            game.mkdir()
+            source_layout = game / "UI_character_server.ini"
+            source_layout.write_bytes(b"[BagInv1]\r\nXPos=-10.000000%\r\n")
+            local_layout = root / "layouts" / "UI_plazmic_1440p.ini"
+            local_layout.parent.mkdir()
+            local_layout.write_bytes(b"[BagInv1]\r\nXPos=-20.000000%\r\n")
+            paths = ui_studio.StudioPaths(
+                repo=root,
+                skin=root / "skin",
+                layouts=local_layout.parent,
+                backups=root / "backups",
+                config=root / "studio.json",
+                game=game,
+                layout=local_layout,
+            )
+
+            result = ui_studio.load_layout_from_game(paths, source_layout.name)
+
+            self.assertEqual(local_layout.read_bytes(), source_layout.read_bytes())
+            self.assertEqual(result["source"], source_layout.name)
+            self.assertEqual(result["layout"], local_layout.name)
+            backup = paths.backups / local_layout.name / result["layoutBackup"]
+            self.assertTrue(backup.is_file())
+            self.assertIn(b"XPos=-20.000000%", backup.read_bytes())
+
+    def test_layout_read_rejects_unsafe_or_unstable_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            game = root / "game"
+            outside = root / "outside"
+            game.mkdir()
+            outside.mkdir()
+            layout = game / "UI_example.ini"
+            layout.write_bytes(b"[Main]\n")
+
+            with self.assertRaisesRegex(ValueError, "top-level regular game file"):
+                ui_studio.read_layout_contents(game, outside / "UI_outside.ini")
+
+            layout.write_bytes(b"")
+            with self.assertRaisesRegex(ValueError, "empty"):
+                ui_studio.read_layout_contents(game, layout)
+
+            layout.write_bytes(b"123456789")
+            with (
+                mock.patch.object(ui_studio, "MAX_REQUEST_BYTES", 8),
+                self.assertRaisesRegex(ValueError, "exceeds"),
+            ):
+                ui_studio.read_layout_contents(game, layout)
+
+            layout.write_bytes(b"[Main]\n")
+            real_fstat = os.fstat
+            calls = 0
+
+            def unstable_fstat(descriptor: int):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    layout.write_bytes(b"[Main]\nChanged=1\n")
+                return real_fstat(descriptor)
+
+            with (
+                mock.patch.object(ui_studio.os, "fstat", side_effect=unstable_fstat),
+                self.assertRaisesRegex(ValueError, "changed while"),
+            ):
+                ui_studio.read_layout_contents(game, layout)
+
+            if os.name != "nt":
+                linked = game / "UI_link.ini"
+                linked.symlink_to(layout)
+                with self.assertRaisesRegex(ValueError, "top-level regular game file"):
+                    ui_studio.read_layout_contents(game, linked)
+
     def test_capture_rejects_skin_symlinks(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -468,6 +611,8 @@ class UiStudioTests(unittest.TestCase):
                 ui_studio.choose_layout(game, "nested/UI_example.ini")
             with self.assertRaisesRegex(ValueError, "symlinks are not editable"):
                 ui_studio.safe_xml_path(skin, "linked.xml")
+            with self.assertRaisesRegex(ValueError, "skin manifest"):
+                ui_studio.safe_xml_path(skin, "EQUI.xml")
 
     def test_interactive_layout_selection_rejects_nonpositive_and_eof(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -500,6 +645,11 @@ class UiStudioTests(unittest.TestCase):
             (game / "eqgame.exe").write_bytes(b"client")
             for skin in (installed_skin, workspace_skin):
                 (skin / "EQUI.xml").write_text(
+                    '<XML ID="EQInterfaceDefinitionLanguage"><Composite>'
+                    "<Include>EQUI_Window.xml</Include></Composite></XML>\n",
+                    encoding="ascii",
+                )
+                (skin / "EQUI_Window.xml").write_text(
                     '<XML ID="EQInterfaceDefinitionLanguage" />\n', encoding="ascii"
                 )
             (installed_skin / "texture.tga").write_bytes(b"original")
@@ -617,6 +767,23 @@ class UiStudioTests(unittest.TestCase):
                 self.assertIn(b'"ok": true', response.read())
                 self.assertEqual(layout.read_bytes(), b"[Main]\nAlpha=200\n")
 
+                (game / layout.name).write_bytes(b"[Main]\nAlpha=175\n")
+                body = json.dumps({"sourceIni": layout.name}).encode("ascii")
+                connection.request(
+                    "POST",
+                    "/api/load",
+                    body=body,
+                    headers={
+                        "X-Plazmic-Token": server.token,
+                        "Origin": server.origin,
+                        "Content-Type": "application/json",
+                    },
+                )
+                response = connection.getresponse()
+                self.assertEqual(response.status, 200)
+                self.assertIn(b'"source": "UI_example.ini"', response.read())
+                self.assertEqual(layout.read_bytes(), b"[Main]\nAlpha=175\n")
+
                 connection.request(
                     "GET",
                     "/api/state",
@@ -674,6 +841,24 @@ class CliTests(unittest.TestCase):
             result.stdout.strip(),
             "Plazmic UI Studio 0.1.0: frontend bundle is ready",
         )
+
+    def test_frontend_diagnostic_rejects_stale_interaction_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            static_dir = Path(temp_dir)
+            for name in ui_studio.STATIC_CONTENT_TYPES:
+                markers = ui_studio.REQUIRED_FRONTEND_MARKERS.get(name, ())
+                (static_dir / name).write_bytes(b"\n".join(markers) or b"placeholder")
+
+            ui_studio.validate_frontend_bundle(static_dir)
+            for name, marker in (
+                ("index.html", b'id="load-button"'),
+                ("app.js", b'api("/api/load"'),
+            ):
+                original = (static_dir / name).read_bytes()
+                (static_dir / name).write_bytes(original.replace(marker, b""))
+                with self.assertRaisesRegex(ValueError, name):
+                    ui_studio.validate_frontend_bundle(static_dir)
+                (static_dir / name).write_bytes(original)
 
     @unittest.skipIf(os.name == "nt", "POSIX shell entrypoint is Linux-only")
     def test_unknown_command_fails_with_help(self) -> None:

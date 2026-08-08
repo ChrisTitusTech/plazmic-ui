@@ -244,3 +244,61 @@ or spacing without manually editing each set of coordinates.
 Revert the group-selection frontend, model helpers, and batch endpoint. Existing
 single-window saves and backups remain compatible; no workspace migration is
 required.
+
+## Phase 7: Paired game-layout load and save
+
+### Outcome
+
+The top-right game-layout controls make both file directions explicit without
+requiring a separate terminal capture command.
+
+### Included work
+
+- Rename the existing publish action to **Save to game**.
+- Add **Load from game** for the selected existing `UI_*.ini`.
+- Back up the current workspace layout before an atomic load.
+- Reject symlinks, path escapes, oversized layouts, empty layouts, and files
+  that change while being read.
+
+### Exit criteria and validation
+
+- AC-14 passes symlink, path-escape, oversized, empty, unstable-read, function,
+  authenticated API, frontend syntax, and full-gate validation.
+- A public-safe ignored screenshot shows the paired top-right controls.
+
+### Rollback
+
+Restore the timestamped workspace backup produced by Load from game. The load
+action never changes the selected game file.
+
+## Phase 8: Stable layout-save defaults
+
+### Outcome
+
+Centered windows retain their exact placement when saved, while the Studio
+uses the requested 16-pixel default grid and provides a quick way to clear a
+multi-window selection.
+
+### Included work
+
+- Share the exact Legends anchor conversions between frontend behavior and
+  deterministic model tests.
+- Preserve six-decimal positions through selection, drag, and save.
+- Change the enabled snap-grid default from 8 to 16 pixels.
+- Show **Deselect all** only with a multi-window selection and clear both the
+  group and primary selection when invoked.
+
+### Exit criteria and validation
+
+- BagInv8's centered anchor round-trips without movement in model and Python
+  tests.
+- The source Studio and packaged Linux binary contain the 16-pixel default and
+  Deselect all action; AC-11's cross-platform embedded-frontend verification
+  applies the same requirement to the next Windows x86-64 binary.
+- The complete repository gate, visible browser check, binary verification,
+  and independent review pass.
+
+### Rollback
+
+Revert the frontend model, controls, and documentation. Layout files require
+no migration because the change uses the existing atomic save format.

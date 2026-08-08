@@ -60,6 +60,7 @@ No fixture comes from EverQuest. Coverage includes:
 - CLI dispatch and shell failure paths;
 - shared window filtering for the list and mock canvas;
 - snapped move/resize geometry, disabled snapping, and Alt bypass behavior;
+- exact left, center, and right anchor round trips at six-decimal precision;
 - multi-window drag, size, alignment, and distribution geometry; and
 - atomic multi-section INI updates and request validation.
 
@@ -85,10 +86,13 @@ Verify at minimum:
 5. Shift-click selects and removes group members from both list and canvas.
 6. Group drag, match size, align, spacing, and Save selected work without
    changing an unselected window.
-7. Field editing and save create a backup.
-8. XML open, invalid-save rejection, and valid save work.
-9. Publish confirmation names the selected target.
-10. A 1920x1080 screenshot contains no personal path or character data.
+7. Deselect all appears for a group and clears every selected window.
+8. BagInv8 remains stationary through an unchanged save and the default grid
+   selector reads 16 pixels.
+9. Field editing and save create a backup.
+10. XML open, invalid-save rejection, and valid save work.
+11. Publish confirmation names the selected target.
+12. A 1920x1080 screenshot contains no personal path or character data.
 
 ## Review and release gate
 

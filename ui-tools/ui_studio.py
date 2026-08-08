@@ -58,6 +58,23 @@ STATIC_CONTENT_TYPES = {
     "app.js": "text/javascript; charset=utf-8",
     "style.css": "text/css; charset=utf-8",
 }
+REQUIRED_FRONTEND_MARKERS = {
+    "index.html": (
+        b'<option value="16" selected>',
+        b'id="deselect-all"',
+        b'id="load-button"',
+    ),
+    "studio-model.js": (
+        b"const DEFAULT_GRID_SIZE = 16;",
+        b"anchoredPosition",
+        b"positionPercent",
+    ),
+    "app.js": (
+        b"deselectAllWindows",
+        b"studioModel.anchoredPosition",
+        b'api("/api/load"',
+    ),
+}
 
 
 def frozen_application() -> bool:
@@ -83,6 +100,15 @@ def static_directory(script_dir: Path) -> Path:
         bundle_root = Path(getattr(sys, "_MEIPASS", script_dir))
         return bundle_root / "studio"
     return script_dir / "studio"
+
+
+def validate_frontend_bundle(static_dir: Path) -> None:
+    if not all((static_dir / name).is_file() for name in STATIC_CONTENT_TYPES):
+        raise ValueError("Studio frontend files are missing from this installation")
+    for name, markers in REQUIRED_FRONTEND_MARKERS.items():
+        contents = (static_dir / name).read_bytes()
+        if not all(marker in contents for marker in markers):
+            raise ValueError(f"Studio frontend is incomplete: {name}")
 
 
 @dataclass(frozen=True)
@@ -281,7 +307,8 @@ def percent_value(value: str, default: float = 0.0) -> float:
 
 
 def anchored_position(reference: str, percent: float, size: int, extent: int) -> float:
-    offset = extent * percent / 100.0
+    offset_extent = extent / 2.0 if reference == "center" else extent
+    offset = offset_extent * percent / 100.0
     if reference in {"right", "bottom"}:
         return extent - offset - size
     if reference == "center":
@@ -293,7 +320,7 @@ def position_percent(reference: str, position: float, size: int, extent: int) ->
     if reference in {"right", "bottom"}:
         return (extent - position - size) * 100.0 / extent
     if reference == "center":
-        return (position + size / 2.0 - extent / 2.0) * 100.0 / extent
+        return (position + size / 2.0 - extent / 2.0) * 100.0 / (extent / 2.0)
     return position * 100.0 / extent
 
 
@@ -374,7 +401,7 @@ def layout_state(paths: StudioPaths) -> dict[str, Any]:
     xml_files = [
         path.name
         for path in sorted(paths.skin.glob("*.xml"))
-        if path.is_file() and not is_link_like(path)
+        if path.name.casefold() != "equi.xml" and path.is_file() and not is_link_like(path)
     ]
     return {
         "screen": {"width": paths.screen_width, "height": paths.screen_height},
@@ -460,6 +487,8 @@ def validated_layout_sections(raw: Any) -> dict[str, dict[str, str]]:
 def safe_xml_path(skin: Path, filename: str) -> Path:
     if Path(filename).name != filename or not filename.lower().endswith(".xml"):
         raise ValueError("XML file must be a top-level .xml filename")
+    if filename.casefold() == "equi.xml":
+        raise ValueError("EQUI.xml is the skin manifest and is not editable in Studio")
     path = skin / filename
     if not path.is_file():
         raise ValueError(f"XML file does not exist: {filename}")
@@ -472,7 +501,30 @@ def safe_xml_path(skin: Path, filename: str) -> Path:
     return path
 
 
-def validate_xml(contents: str) -> bytes:
+def equi_manifest_includes(root: ET.Element) -> list[str]:
+    top_level_names = [local_name(element.tag) for element in root]
+    composites = [element for element in root if local_name(element.tag) == "Composite"]
+    if len(composites) != 1:
+        raise ValueError(
+            "EQUI.xml must contain exactly one top-level Composite manifest; "
+            f"found {len(composites)}"
+        )
+    unexpected = sorted({name for name in top_level_names if name not in {"Composite", "Schema"}})
+    if unexpected:
+        raise ValueError(
+            f"EQUI.xml contains unexpected top-level elements: {', '.join(unexpected)}"
+        )
+    includes = [
+        (element.text or "").strip()
+        for element in composites[0].iter()
+        if local_name(element.tag) == "Include"
+    ]
+    if not includes:
+        raise ValueError("EQUI.xml Composite manifest contains no Include entries")
+    return includes
+
+
+def validate_xml(contents: str, *, filename: str | None = None) -> bytes:
     try:
         encoded = contents.encode("us-ascii")
     except UnicodeEncodeError as error:
@@ -487,7 +539,39 @@ def validate_xml(contents: str) -> bytes:
         raise ValueError("root element must be XML")
     if root.get("ID") != "EQInterfaceDefinitionLanguage":
         raise ValueError("root ID must be EQInterfaceDefinitionLanguage")
+    if filename is not None and filename.casefold() == "equi.xml":
+        equi_manifest_includes(root)
     return encoded
+
+
+def validate_skin_manifest(skin: Path) -> None:
+    path = skin / "EQUI.xml"
+    if is_link_like(path) or not path.is_file() or path.resolve().parent != skin.resolve():
+        raise ValueError("workspace skin must contain a physical top-level EQUI.xml manifest")
+    if path.stat().st_size > MAX_REQUEST_BYTES:
+        raise ValueError(f"EQUI.xml exceeds {MAX_REQUEST_BYTES} bytes")
+    try:
+        contents = path.read_text(encoding="us-ascii")
+    except (OSError, UnicodeError) as error:
+        raise ValueError("EQUI.xml must be readable US-ASCII") from error
+    encoded = validate_xml(contents, filename=path.name)
+    root = ET.fromstring(encoded)
+    includes = equi_manifest_includes(root)
+    available = {
+        candidate.name.casefold()
+        for candidate in skin.glob("*.xml")
+        if candidate.is_file() and not is_link_like(candidate)
+    }
+    seen: set[str] = set()
+    for include in includes:
+        folded = include.casefold()
+        if not include or Path(include).name != include or not include.endswith(".xml"):
+            raise ValueError(f"EQUI.xml contains an unsafe Include: {include!r}")
+        if folded in seen:
+            raise ValueError(f"EQUI.xml contains a duplicate Include: {include}")
+        if folded not in available:
+            raise ValueError(f"EQUI.xml includes a missing XML file: {include}")
+        seen.add(folded)
 
 
 def game_layouts(game: Path) -> list[Path]:
@@ -556,9 +640,53 @@ def read_layout_contents(game: Path, layout: Path) -> bytes:
         raise ValueError(f"invalid layout filename: {layout.name}")
     if is_link_like(layout) or layout.parent.resolve() != game.resolve():
         raise ValueError("layout must be a top-level regular game file")
-    contents = layout.read_bytes()
+    before = layout.lstat()
+    if not stat.S_ISREG(before.st_mode):
+        raise ValueError("layout must be a top-level regular game file")
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+    if os.name != "nt":
+        no_follow = getattr(os, "O_NOFOLLOW", 0)
+        if not no_follow:
+            raise ValueError("safe no-follow layout reads are unsupported on this platform")
+        flags |= no_follow
+    try:
+        descriptor = os.open(layout, flags)
+    except OSError as error:
+        raise ValueError(f"unable to safely open layout: {layout.name}") from error
+
+    identity_before = (
+        before.st_dev,
+        before.st_ino,
+        before.st_mode,
+        before.st_size,
+        before.st_mtime_ns,
+    )
+    with os.fdopen(descriptor, "rb") as source:
+        opened = os.fstat(source.fileno())
+        identity_opened = (
+            opened.st_dev,
+            opened.st_ino,
+            opened.st_mode,
+            opened.st_size,
+            opened.st_mtime_ns,
+        )
+        if identity_opened != identity_before or not stat.S_ISREG(opened.st_mode):
+            raise ValueError(f"layout changed before it could be read: {layout.name}")
+        contents = source.read(MAX_REQUEST_BYTES + 1)
+        after = os.fstat(source.fileno())
+    identity_after = (
+        after.st_dev,
+        after.st_ino,
+        after.st_mode,
+        after.st_size,
+        after.st_mtime_ns,
+    )
+    if identity_opened != identity_after or len(contents) != after.st_size:
+        raise ValueError(f"layout changed while it was being read; try again: {layout.name}")
     if len(contents) > MAX_REQUEST_BYTES:
         raise ValueError(f"layout exceeds the {MAX_REQUEST_BYTES}-byte limit")
+    if not contents:
+        raise ValueError(f"layout is empty: {layout.name}")
     return contents
 
 
@@ -594,6 +722,7 @@ def capture_workspace(
     symlink = first_symlink(source_skin)
     if symlink is not None:
         raise ValueError("source skin contains a symlink")
+    validate_skin_manifest(source_skin)
     workspace = local_workspace(repo, create=True)
     skin_destination = workspace / "skin"
     staging = Path(tempfile.mkdtemp(prefix=".capture.", dir=workspace))
@@ -662,6 +791,25 @@ def restore_skin_after_failed_publish(target: Path, backup: Path | None) -> None
         os.replace(backup, target)
 
 
+def load_layout_from_game(paths: StudioPaths, source_name: str) -> dict[str, str]:
+    source_layout = choose_layout(paths.game, source_name)
+    contents = read_layout_contents(paths.game, source_layout)
+    if not parse_ini(contents):
+        raise ValueError(f"source UI INI has no layout sections: {source_name}")
+    if (
+        is_link_like(paths.layout)
+        or not paths.layout.is_file()
+        or paths.layout.resolve().parent != paths.layouts.resolve()
+    ):
+        raise ValueError("workspace layout must be a top-level physical file")
+    backup = atomic_write(paths.layout, contents, paths.backups)
+    return {
+        "source": source_layout.name,
+        "layout": paths.layout.name,
+        "layoutBackup": backup.name if backup else "",
+    }
+
+
 def publish_workspace(paths: StudioPaths, target_name: str) -> dict[str, str]:
     if not LAYOUT_NAME_PATTERN.fullmatch(target_name):
         raise ValueError("choose an existing UI_*.ini target")
@@ -675,6 +823,7 @@ def publish_workspace(paths: StudioPaths, target_name: str) -> dict[str, str]:
     symlink = first_symlink(paths.skin)
     if symlink is not None:
         raise ValueError("workspace skin contains a symlink")
+    validate_skin_manifest(paths.skin)
     if is_link_like(paths.layout) or not paths.layout.is_file():
         raise ValueError("workspace layout must be a physical regular file")
     layout_contents = paths.layout.read_bytes()
@@ -902,9 +1051,15 @@ class StudioHandler(BaseHTTPRequestHandler):
                 if self.path == "/api/xml":
                     filename = str(body.get("file", ""))
                     path = safe_xml_path(self.server.paths.skin, filename)
-                    contents = validate_xml(str(body.get("contents", "")))
+                    contents = validate_xml(str(body.get("contents", "")), filename=filename)
                     atomic_write(path, contents, self.server.paths.backups)
                     self._json({"ok": True})
+                    return
+                if self.path == "/api/load":
+                    result = load_layout_from_game(
+                        self.server.paths, str(body.get("sourceIni", ""))
+                    )
+                    self._json({"ok": True, **result})
                     return
                 if self.path == "/api/publish":
                     result = publish_workspace(self.server.paths, str(body.get("targetIni", "")))
@@ -997,8 +1152,7 @@ def main() -> int:
     static_dir = static_directory(script_dir)
     try:
         if args.command == "diagnose":
-            if not all((static_dir / name).is_file() for name in STATIC_CONTENT_TYPES):
-                raise ValueError("Studio frontend files are missing from this installation")
+            validate_frontend_bundle(static_dir)
             print(f"{APPLICATION_NAME} {VERSION}: frontend bundle is ready")
             return 0
 

@@ -10,7 +10,7 @@ const state = {
   filter: "",
   showHidden: false,
   snapEnabled: true,
-  snapSize: 8,
+  snapSize: studioModel.DEFAULT_GRID_SIZE,
 };
 const fields = {
   xRef: document.querySelector("#x-ref"),
@@ -32,7 +32,7 @@ const editableSettingKeys = new Set([
   "FadeToAlpha", "Fades", "Locked", "Show", "BGType", "BGTint.red",
   "BGTint.green", "BGTint.blue",
 ]);
-const mutationControls = [...document.querySelectorAll("#save-window, #save-xml, #publish-button, #group-tools button")];
+const mutationControls = [...document.querySelectorAll("#save-window, #save-xml, #load-button, #publish-button, #group-tools button")];
 let mutationActive = false;
 
 async function api(path, options = {}) {
@@ -60,7 +60,7 @@ function selectedWindows() {
 }
 
 function numeric(value, fallback) {
-  const parsed = Number.parseFloat(String(value || "").replace("%", ""));
+  const parsed = Number.parseFloat(String(value ?? "").replace("%", ""));
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
@@ -82,7 +82,8 @@ function beginMutation() {
 
 function endMutation() {
   mutationActive = false;
-  for (const control of mutationControls) control.disabled = false;
+  for (const control of mutationControls) control.disabled = !state.data;
+  document.querySelector("#save-window").disabled = !selectedWindow();
   updateGroupControls();
 }
 
@@ -129,31 +130,41 @@ function updateSelectedFromFields() {
 
 function setPixelPosition(window) {
   const screen = state.data.screen;
-  const xPercent = numeric(window.values.XPos, 0);
-  const yPercent = numeric(window.values.YPos, 0);
-  const xOffset = screen.width * xPercent / 100;
-  const yOffset = screen.height * yPercent / 100;
-  window.x = window.values.XRef === "right" ? screen.width - xOffset - window.width : window.values.XRef === "center" ? screen.width / 2 + xOffset - window.width / 2 : xOffset;
-  window.y = window.values.YRef === "bottom" ? screen.height - yOffset - window.height : window.values.YRef === "center" ? screen.height / 2 + yOffset - window.height / 2 : yOffset;
+  window.x = studioModel.anchoredPosition(
+    window.values.XRef,
+    numeric(window.values.XPos, 0),
+    window.width,
+    screen.width,
+  );
+  window.y = studioModel.anchoredPosition(
+    window.values.YRef,
+    numeric(window.values.YPos, 0),
+    window.height,
+    screen.height,
+  );
 }
 
 function setPercentPosition(window, updateFields = true) {
   const screen = state.data.screen;
-  let x;
-  let y;
-  if (window.values.XRef === "right") x = (screen.width - window.x - window.width) * 100 / screen.width;
-  else if (window.values.XRef === "center") x = (window.x + window.width / 2 - screen.width / 2) * 100 / screen.width;
-  else x = window.x * 100 / screen.width;
-  if (window.values.YRef === "bottom") y = (screen.height - window.y - window.height) * 100 / screen.height;
-  else if (window.values.YRef === "center") y = (window.y + window.height / 2 - screen.height / 2) * 100 / screen.height;
-  else y = window.y * 100 / screen.height;
+  const x = studioModel.positionPercent(
+    window.values.XRef,
+    window.x,
+    window.width,
+    screen.width,
+  );
+  const y = studioModel.positionPercent(
+    window.values.YRef,
+    window.y,
+    window.height,
+    screen.height,
+  );
   window.values.XPos = `${x.toFixed(6)}%`;
   window.values.YPos = `${y.toFixed(6)}%`;
   window.values.Width = String(Math.round(window.width));
   window.values.Height = String(Math.round(window.height));
   if (updateFields) {
-    fields.xPos.value = x.toFixed(4);
-    fields.yPos.value = y.toFixed(4);
+    fields.xPos.value = x.toFixed(6);
+    fields.yPos.value = y.toFixed(6);
     fields.width.value = Math.round(window.width);
     fields.height.value = Math.round(window.height);
   }
@@ -240,8 +251,9 @@ function updateGroupControls() {
   const tools = document.querySelector("#group-tools");
   tools.hidden = count < 2;
   document.querySelector("#selection-count").textContent = `${count} selected`;
-  for (const button of tools.querySelectorAll("[data-group-action^='distribute-']")) {
-    button.disabled = count < 3 || mutationActive;
+  for (const button of tools.querySelectorAll("button")) {
+    const needsThree = button.matches("[data-group-action^='distribute-']");
+    button.disabled = mutationActive || !state.data || count < 2 || (needsThree && count < 3);
   }
 }
 
@@ -251,11 +263,13 @@ function selectWindow(section, renderCanvas = true, resetSelection = true) {
   else state.selectedSections.add(section);
   const window = selectedWindow();
   if (!window) return;
+  for (const field of Object.values(fields)) field.disabled = false;
+  document.querySelector("#save-window").disabled = mutationActive;
   document.querySelector("#selected-name").textContent = section;
   fields.xRef.value = window.values.XRef || "left";
   fields.yRef.value = window.values.YRef || "top";
-  fields.xPos.value = numeric(window.values.XPos, 0).toFixed(4);
-  fields.yPos.value = numeric(window.values.YPos, 0).toFixed(4);
+  fields.xPos.value = numeric(window.values.XPos, 0).toFixed(6);
+  fields.yPos.value = numeric(window.values.YPos, 0).toFixed(6);
   fields.width.value = Math.round(window.width);
   fields.height.value = Math.round(window.height);
   fields.alpha.value = numeric(window.values.Alpha, 255);
@@ -293,6 +307,31 @@ function toggleWindowSelection(section) {
 function handleWindowSelection(section, extendSelection) {
   if (extendSelection) toggleWindowSelection(section);
   else selectWindow(section);
+}
+
+function deselectAllWindows() {
+  const selection = studioModel.emptySelection();
+  state.selected = selection.primary;
+  state.selectedSections = selection.sections;
+  document.querySelector("#selected-name").textContent = "Select a window";
+  for (const field of Object.values(fields)) field.disabled = true;
+  document.querySelector("#save-window").disabled = true;
+  updateGroupControls();
+  renderList();
+  renderStage();
+  status("Deselected all windows.", "success");
+}
+
+function invalidateEditorState() {
+  const selection = studioModel.emptySelection();
+  state.data = null;
+  state.selected = selection.primary;
+  state.selectedSections = selection.sections;
+  document.querySelector("#selected-name").textContent = "Reload Studio to continue";
+  for (const field of Object.values(fields)) field.disabled = true;
+  renderList();
+  renderStage();
+  updateGroupControls();
 }
 
 function beginDrag(event) {
@@ -434,6 +473,7 @@ async function loadState(
   preferredSelection = null,
   preservedWindows = null,
   savedSections = null,
+  preferredTarget = null,
 ) {
   const preservedSelection = preservedWindows ? [...state.selectedSections] : null;
   const data = await api("/api/state");
@@ -451,7 +491,11 @@ async function loadState(
   document.querySelector("#screen-size").textContent = `${data.screen.width} x ${data.screen.height}`;
   const targetSelect = document.querySelector("#target-ini");
   targetSelect.replaceChildren(...data.targets.map((name) => new Option(name, name)));
-  if (data.targets.includes(data.layout)) targetSelect.value = data.layout;
+  if (preferredTarget && data.targets.includes(preferredTarget)) {
+    targetSelect.value = preferredTarget;
+  } else if (data.targets.includes(data.layout)) {
+    targetSelect.value = data.layout;
+  }
   const xmlSelect = document.querySelector("#xml-file");
   xmlSelect.replaceChildren(...data.xmlFiles.map((name) => new Option(name, name)));
   const candidate = data.windows.find((window) => window.section === preferredSelection) || data.windows.find((window) => window.visible) || data.windows[0];
@@ -490,6 +534,7 @@ for (const field of Object.values(fields)) field.addEventListener("change", upda
 document.querySelectorAll("[data-group-action]").forEach((button) => {
   button.addEventListener("click", () => applyGroupAction(button.dataset.groupAction));
 });
+document.querySelector("#deselect-all").addEventListener("click", deselectAllWindows);
 
 document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => {
   document.querySelectorAll(".tab, .tab-panel").forEach((element) => element.classList.remove("active"));
@@ -556,6 +601,23 @@ document.querySelector("#save-xml").addEventListener("click", async () => {
   }
 });
 
+document.querySelector("#load-button").addEventListener("click", async () => {
+  const sourceIni = document.querySelector("#target-ini").value;
+  if (!sourceIni || !window.confirm(`Discard unsaved Studio positions and load the current ${sourceIni} from EverQuest? The local Studio layout will be backed up first.`)) return;
+  if (!beginMutation()) return;
+  status(`Loading ${sourceIni} from EverQuest...`);
+  try {
+    const result = await api("/api/load", { method: "POST", body: JSON.stringify({ sourceIni }) });
+    invalidateEditorState();
+    await loadState(state.selected, null, null, sourceIni);
+    status(`Loaded ${result.source} into ${result.layout}.`, "success");
+  } catch (error) {
+    status(error.message, "error");
+  } finally {
+    endMutation();
+  }
+});
+
 document.querySelector("#publish-button").addEventListener("click", async () => {
   const targetIni = document.querySelector("#target-ini").value;
   if (!targetIni || !window.confirm(`Replace the installed plazmic-ui skin and write the edited layout into ${targetIni}? Backups will be created.`)) return;
@@ -571,4 +633,4 @@ document.querySelector("#publish-button").addEventListener("click", async () => 
   }
 });
 
-loadState().then(() => status("Workspace ready. Changes stay local until you publish.", "success")).catch((error) => status(error.message, "error"));
+loadState().then(() => status("Workspace ready. Changes stay local until you save to game.", "success")).catch((error) => status(error.message, "error"));

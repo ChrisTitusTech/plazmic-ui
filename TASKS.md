@@ -5,6 +5,37 @@ skipped live checks and residual risk rather than marking them complete.
 
 ## Current phase
 
+### S-05: Stabilize centered saves and selection defaults
+
+- [x] Keep BagInv8 and other center-anchored windows position-stable across an
+  unchanged save.
+- [x] Default the enabled snap grid to 16 pixels.
+- [x] Show **Deselect all** for multi-window selections and clear selection
+  safely.
+- [x] Complete the source gate, visible Studio check, packaged Linux binary,
+  and independent review.
+- Acceptance criteria: centered anchors round-trip at six decimals without
+  movement, the enabled grid starts at 16 pixels, and Deselect all clears both
+  the primary and grouped selections, per Phase 8 and updated AC-12/AC-13.
+- Automated validation: exact BagInv8 Python/frontend anchor assertions, the
+  16-pixel default and empty-selection model assertions, syntax, source gate,
+  and packaged-binary diagnostics.
+- Manual validation: verify BagInv8, the 16-pixel selector, and Deselect all in
+  the loopback Studio without publishing to the game.
+
+### S-04: Add paired game-layout load and save
+
+- [x] Add **Load from game** beside the renamed **Save to game** action.
+- [x] Load the selected existing `UI_*.ini` into the workspace atomically with
+  a local backup and stable-read validation.
+- [x] Cover the file operation and authenticated API route with synthetic data.
+- [x] Complete the visible screenshot and full repository gate.
+- Acceptance criteria: AC-14 and the Phase 7 exit criteria.
+- Automated validation: authenticated load API tests, stable-read and backup
+  tests, frontend syntax checks, and `make check`.
+- Manual validation: retain an ignored public-safe screenshot of the paired
+  top-right actions under `captures/`.
+
 ### S-03: Add multi-window layout tools
 
 - [x] Add Shift-click multi-selection with a stable primary window.
@@ -125,3 +156,11 @@ model tests, the complete source gate, and the packaged Linux diagnostic pass.
 CodeRabbit was rate-limited for this follow-up, so the exact staged diff
 received focused geometry, API, rollback, workflow, secret, and whitespace
 review locally instead.
+
+Centered-window saves now share the half-canvas anchor conversion and preserve
+six-decimal positions, including the BagInv8 regression fixture. The enabled
+grid defaults to 16 pixels and multi-selection exposes Deselect all, which
+clears the primary and grouped selections. The 1920x1080 browser check is
+retained in ignored `captures/plazmic-ui-studio-stable-layout.png`; 31 Python
+tests, 12 frontend model tests, the complete source gate, rebuilt Linux binary
+diagnostics, and a zero-finding independent review pass.
