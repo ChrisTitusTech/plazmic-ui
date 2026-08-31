@@ -22,9 +22,10 @@ In scope: the reviewed UI bundle, capture, local materialization, layout/XML
 editing, validation, backups, safe publish, accessibility, documentation, Linux
 source compatibility, and Linux/Windows Studio packaging.
 
-Out of scope: character layouts or user data in the bundle, a proprietary-
-texture renderer, macOS packaging, binary patching, code injection, macros,
-gameplay automation, synthesized input, multibox control, and gameplay changes.
+Out of scope: personal character layouts or user data in the bundle, a
+proprietary-texture renderer, macOS packaging, binary patching, code injection,
+macros, gameplay automation, synthesized input, multibox control, and gameplay
+changes. Aya's tracked generic template is the sole reviewed layout exception.
 
 ## Development workflow
 
@@ -60,6 +61,6 @@ repository hygiene gates pass.
 
 By contributing, you agree that your contribution is licensed under the
 project's [GNU General Public License v3.0 only](LICENSE). This grant does not
-apply to any third-party asset. Third-party assets require documented
-provenance and express written redistribution authorization before inclusion in
-the bundle; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+apply to third-party or bundled user-created UI assets. Bundle additions require
+documented provenance, attribution, inventory review, and privacy validation;
+see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

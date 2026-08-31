@@ -3,20 +3,22 @@
 [![CI](https://github.com/ChrisTitusTech/plazmic-ui/actions/workflows/ci.yml/badge.svg)](https://github.com/ChrisTitusTech/plazmic-ui/actions/workflows/ci.yml)
 
 Plazmic UI is a public EverQuest Legends UI bundle and editing toolkit. It
-includes a ready-to-install skin, previews `UI_*.ini` window layouts in a
+includes ready-to-install Plazmic UI and Aya Legends skins, previews `UI_*.ini` window layouts in a
 browser Studio, validates EQ XML, and publishes changes with rollback backups.
 The full source workflow targets Linux; the Studio is also released as one-file
 Linux and Windows executables.
 
-The reviewed `ui-bundle/plazmic-ui/` tree contains the game UI assets required
-by the skin. It contains no character layout, account data, character name,
-personal path, game executable, backup, or checksum sidecar.
+The reviewed `ui-bundle/plazmic-ui/` and `ui-bundle/aya-legends/` trees contain
+the game UI assets required by each skin. Aya includes its upstream generic
+layout template; neither bundle contains account data, a personal character
+layout, character name, local path, game executable, backup, or checksum sidecar.
 
 ## Features
 
-- Captures an installed `plazmic-ui` skin, or falls back to `default_modern`,
-  plus one explicitly selected top-level layout.
-- Provides a complete `plazmic-ui/` skin for direct installation.
+- Captures either an installed `plazmic-ui` skin (falling back to
+  `default_modern`) or an installed `AYA_Legends` skin, plus one explicitly
+  selected top-level layout.
+- Provides complete Plazmic UI and Aya Legends packages for direct installation.
 - Builds a reviewed local derivative from `default_modern` without changing the
   shipped skin.
 - Shows window bounds and alpha on a configurable canvas, defaulting to
@@ -32,7 +34,8 @@ personal path, game executable, backup, or checksum sidecar.
   external service.
 - Preserves unrelated INI content and creates timestamped backups before every
   replacement.
-- Publishes only `uifiles/plazmic-ui` and one selected existing `UI_*.ini`.
+- Publishes only the selected allowlisted skin directory and one selected
+  existing `UI_*.ini`.
 - Runs locally with no telemetry, account, updater, or non-loopback listener.
 
 The Studio is a layout mock. It does not reimplement EQ's SIDL renderer or
@@ -44,14 +47,15 @@ Tagged releases provide:
 
 - `plazmic-ui-studio-linux-x86_64`;
 - `plazmic-ui-studio-windows-x86_64.exe`; and
-- `plazmic-ui-bundle.zip` when repository owners have recorded the required
-  redistribution authorization; and
+- `plazmic-ui-bundle.zip`;
+- `aya-legends-bundle.zip`; and
 - `SHA256SUMS` for every release asset.
 
-The current bundle is also available in
-[`ui-bundle/plazmic-ui`](ui-bundle/plazmic-ui). To install it, stop EverQuest,
-copy that entire `plazmic-ui/` directory into the game's `uifiles/` directory,
-then start the game and run:
+The current packages are also available in
+[`ui-bundle/plazmic-ui`](ui-bundle/plazmic-ui) and
+[`ui-bundle/aya-legends`](ui-bundle/aya-legends). To install Plazmic UI, stop
+EverQuest, copy the entire `plazmic-ui/` directory into the game's `uifiles/`
+directory, then start the game and run:
 
 ```text
 /loadskin plazmic-ui 1
@@ -59,6 +63,10 @@ then start the game and run:
 
 The ZIP has the same `plazmic-ui/` root. Do not merge it into `default` or
 `default_modern`.
+
+For Aya, extract `aya-legends-bundle.zip` into the EverQuest Legends directory.
+It preserves the upstream `uifiles/AYA_Legends/` directory and generic
+`UI_Character_Server_LO1.ini` template. Load it with `/loadskin AYA_Legends 1`.
 
 On Linux:
 
@@ -111,6 +119,12 @@ and automation should pass only its top-level filename:
 ./plazmic-ui capture --layout UI_example.ini
 ```
 
+Choose Aya instead and remember that choice for Studio, install, and publish:
+
+```bash
+./plazmic-ui capture --skin aya --layout UI_example.ini
+```
+
 Save edits in the Studio, then select the destination layout and click
 **Publish to game**, or publish from the terminal:
 
@@ -137,11 +151,12 @@ backup restoration, resolution settings, and both workspace paths.
 
 ## Privacy and asset boundary
 
-The distributable skin is tracked only under `ui-bundle/plazmic-ui/`. Bundle
-validation permits required XML, textures, cursors, and generic skin INIs while
-rejecting character `UI_*.ini` layouts, backups, checksum sidecars, symlinks,
-executables, local paths, credentials, and private workspace metadata.
-`ui-bundle/SHA256SUMS` pins the reviewed file inventory and exact asset bytes.
+The distributable skins are tracked only under `ui-bundle/plazmic-ui/` and
+`ui-bundle/aya-legends/`. Bundle validation permits required XML, textures,
+cursors, generic skin INIs, and Aya's exact reviewed generic layout while
+rejecting every other `UI_*.ini` layout, backups, checksum sidecars, symlinks,
+executables, local paths, credentials, and private workspace metadata. Separate
+SHA-256 manifests pin each reviewed inventory and its exact asset bytes.
 
 Generated UI content stays under ignored `.plazmic-ui-workspace/`:
 
@@ -154,8 +169,8 @@ Local screenshots and validation evidence stay in the separate ignored
 `captures/` directory.
 
 Do not force-add, publish, package, or attach private workspace files to an
-issue or release. Only reviewed asset changes under `ui-bundle/plazmic-ui/`
-belong in the public bundle. The tool never changes `default` or
+issue or release. Only reviewed asset changes under the two approved bundle
+roots belong in a public bundle. The tool never changes `default` or
 `default_modern` in place.
 
 Packaged binaries store the same private workspace under the user's local

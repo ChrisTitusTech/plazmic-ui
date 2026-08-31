@@ -6,6 +6,7 @@ script_dir=$(CDPATH='' cd -P -- "$(dirname -- "$0")" && pwd)
 repo_dir=$(CDPATH='' cd -P -- "$script_dir/.." && pwd)
 source_dir="$repo_dir/.plazmic-ui-workspace/skin"
 game_dir=${EQ_LEGENDS_DIR:-}
+skin_id=
 dry_run=0
 staging_dir=
 backup_dir=
@@ -17,7 +18,8 @@ Usage: ui-tools/install-ui.sh [OPTIONS]
 
 Options:
   --game-dir DIR   EverQuest Legends installation directory
-  --source DIR     Materialized Plazmic UI directory
+  --source DIR     Materialized UI workspace directory
+  --skin ID        Install plazmic-ui or aya (default: remembered selection)
   --dry-run        Validate and print the intended target without installing
   -h, --help       Show this help
 EOF
@@ -65,6 +67,14 @@ while [ "$#" -gt 0 ]; do
       source_dir=$2
       shift 2
       ;;
+    --skin)
+      [ "$#" -ge 2 ] || {
+        printf '%s\n' '--skin requires a value.' >&2
+        exit 2
+      }
+      skin_id=$2
+      shift 2
+      ;;
     --dry-run)
       dry_run=1
       shift
@@ -87,15 +97,9 @@ if [ -z "$game_dir" ]; then
 fi
 
 uifiles_dir="$game_dir/uifiles"
-target_dir="$uifiles_dir/plazmic-ui"
 
 if [ ! -f "$game_dir/eqgame.exe" ] || [ ! -d "$uifiles_dir/default_modern" ]; then
   printf '%s\n' 'EverQuest Legends UI installation was not found.' >&2
-  exit 1
-fi
-
-if [ ! -f "$source_dir/EQUI.xml" ] || [ ! -f "$source_dir/.plazmic-upstream" ]; then
-  printf '%s\n' 'The selected source is not a materialized Plazmic UI workspace.' >&2
   exit 1
 fi
 
@@ -105,6 +109,56 @@ for required_command in pgrep python3 realpath rsync; do
     exit 1
   fi
 done
+
+if [ -z "$skin_id" ]; then
+  config_path="$repo_dir/.plazmic-ui-workspace/studio.json"
+  if [ -f "$config_path" ] && [ ! -L "$config_path" ]; then
+    skin_id=$(
+      python3 - "$config_path" <<'PY'
+import json
+import sys
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        value = json.load(handle)
+except (OSError, ValueError):
+    value = {}
+print(value.get("active_skin", "") if isinstance(value, dict) else "")
+PY
+    )
+  fi
+fi
+skin_id=${skin_id:-plazmic-ui}
+
+case "$skin_id" in
+  plazmic-ui)
+    skin_directory=plazmic-ui
+    skin_display='Plazmic UI'
+    ;;
+  aya)
+    skin_directory=AYA_Legends
+    skin_display='Aya Legends'
+    ;;
+  *)
+    printf 'Invalid skin: %s (expected plazmic-ui or aya)\n' "$skin_id" >&2
+    exit 2
+    ;;
+esac
+target_dir="$uifiles_dir/$skin_directory"
+
+if [ ! -f "$source_dir/EQUI.xml" ] || [ ! -f "$source_dir/.plazmic-upstream" ]; then
+  printf '%s\n' 'The selected source is not a materialized UI workspace.' >&2
+  exit 1
+fi
+
+recorded_skin=$(sed -n 's/^skin=//p' "$source_dir/.plazmic-upstream" | head -n 1)
+recorded_source=$(sed -n 's/^source=//p' "$source_dir/.plazmic-upstream" | head -n 1)
+if { [ "$skin_id" = aya ] && [ "$recorded_skin" != aya ] &&
+  [ "$recorded_source" != AYA_Legends ]; } ||
+  { [ -n "$recorded_skin" ] && [ "$recorded_skin" != "$skin_id" ]; }; then
+  printf '%s\n' 'The workspace was captured for a different skin.' >&2
+  exit 1
+fi
 
 source_canonical=$(realpath -e -- "$source_dir")
 uifiles_canonical=$(realpath -e -- "$uifiles_dir")
@@ -126,7 +180,14 @@ if [ -L "$target_dir" ] || { [ -e "$target_dir" ] && [ ! -d "$target_dir" ]; }; 
   exit 1
 fi
 
-python3 "$script_dir/lint-ui.py" --check-format "$source_dir"
+if [ "$skin_id" = aya ] || grep -q '^captured_at=' "$source_dir/.plazmic-upstream"; then
+  python3 "$script_dir/lint-ui.py" \
+    --profile generic \
+    --inherited-include SIDL.xml \
+    "$source_dir"
+else
+  python3 "$script_dir/lint-ui.py" --check-format "$source_dir"
+fi
 
 printf '%s\n' 'Materialized source and install target validated.'
 
@@ -165,5 +226,5 @@ fi
 mv -- "$staging_dir" "$target_dir"
 staging_dir=
 
-printf '%s\n' 'Installed Plazmic UI.'
-printf '%s\n' 'Load it in game with: /loadskin plazmic-ui 1'
+printf 'Installed %s.\n' "$skin_display"
+printf 'Load it in game with: /loadskin %s 1\n' "$skin_directory"

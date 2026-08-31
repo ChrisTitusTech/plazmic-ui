@@ -18,7 +18,11 @@ PRIVATE_ROOTS = {
     "ui-backups",
     "ui-layouts",
 }
-BUNDLE_ROOT = Path("ui-bundle/plazmic-ui")
+BUNDLE_ROOTS = (
+    Path("ui-bundle/plazmic-ui"),
+    Path("ui-bundle/aya-legends"),
+)
+AYA_GENERIC_LAYOUT = Path("ui-bundle/aya-legends/UI_Character_Server_LO1.ini")
 BUNDLE_SUFFIXES = {
     ".cur",
     ".dds",
@@ -99,7 +103,7 @@ def private_path(path: Path) -> bool:
 
 
 def bundle_path(path: Path) -> bool:
-    return path == BUNDLE_ROOT or BUNDLE_ROOT in path.parents
+    return any(path == root or root in path.parents for root in BUNDLE_ROOTS)
 
 
 def embedded_text(contents: bytes) -> bytes:
@@ -122,7 +126,11 @@ def inspect_path(relative: Path) -> list[str]:
         return findings
     if bundle_path(relative):
         lower_name = path.name.lower()
-        if lower_name.startswith("ui_") and lower_name.endswith(".ini"):
+        if (
+            lower_name.startswith("ui_")
+            and lower_name.endswith(".ini")
+            and relative != AYA_GENERIC_LAYOUT
+        ):
             findings.append("character layout is not allowed in the public UI bundle")
         if path.name.endswith(":crc") or path.suffix.lower() in {".bak", ".crc"}:
             findings.append("backup or checksum sidecar is not allowed in the UI bundle")

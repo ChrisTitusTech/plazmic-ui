@@ -14,9 +14,10 @@
 - `studio/` is static HTML, CSS, and JavaScript with no build system or remote
   dependency.
 
-`ui-bundle/plazmic-ui/` is the separate, tracked, ready-to-install skin. Bundle
-validation allows required UI XML, textures, cursors, and generic INIs but
-rejects character layouts, sidecars, symlinks, executables, and private data.
+`ui-bundle/plazmic-ui/` and `ui-bundle/aya-legends/` are separate, tracked,
+ready-to-install packages. Bundle validation allows required UI XML, textures,
+cursors, generic INIs, and Aya's exact generic layout but rejects every other
+character layout, sidecars, symlinks, executables, and private data.
 
 Release executables package `ui_studio.py`, `studio/`, a Python runtime, and
 PyInstaller runtime components into one file per target operating system. They
@@ -31,6 +32,7 @@ EverQuest Legends installation
   |-- uifiles/default -------- manifest XML fallback --+
   |-- uifiles/default_modern ---- sync/capture --------+--> .plazmic-ui-workspace/skin
   |-- uifiles/plazmic-ui -------- capture --------------+
+  |-- uifiles/AYA_Legends ------- capture --------------+
   |-- UI_*.ini ------------------ capture --------------> .plazmic-ui-workspace/layouts
   |                                                       |
   |                                             loopback Studio edits
@@ -38,7 +40,7 @@ EverQuest Legends installation
   +<----------- explicit staged publish and backups ------+
 ```
 
-The reviewed bundle enters Git, CI, and its dedicated release ZIP. Locally
+The reviewed bundles enter Git, CI, and their dedicated release ZIPs. Locally
 captured skins, personal layouts, paths, backups, and identifiers do not. The
 browser Studio exchanges local content only with its loopback server on
 `127.0.0.1`; that traffic never leaves the host.
@@ -48,10 +50,15 @@ The top-right game-layout selector also supports a reverse layout-only flow.
 remained stable during the read, backs up the current workspace layout, and
 replaces only that ignored local file. It never writes to the game.
 
+The remembered selector maps only `plazmic-ui` to `uifiles/plazmic-ui` and
+`aya` to `uifiles/AYA_Legends`. The same mapping controls capture, Studio,
+offline install, live publish, and the displayed `/loadskin` instruction.
+
 Release CI builds on Linux and Windows separately, runs the synthetic test
 suite, verifies the executable format and version, and asks the executable to
 validate its embedded frontend before it can become a release asset. It also
-validates and archives the tracked skin with `plazmic-ui/` as the ZIP root.
+validates and archives both tracked packages. Plazmic retains `plazmic-ui/` as
+the ZIP root; Aya retains its upstream game-root package structure.
 
 ## INI model
 

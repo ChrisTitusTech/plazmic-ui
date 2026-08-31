@@ -44,12 +44,13 @@ make check
 `make lint` checks a materialized ignored skin when one exists and reports a
 clear skip in a clean clone.
 
-`make bundle-check` verifies and lints the tracked installable skin.
+`make bundle-check` verifies and lints both tracked installable packages.
 `make bundle-archive` creates `release-assets/plazmic-ui-bundle.zip` with
-`plazmic-ui/` as its archive root.
-The verifier compares the tree with `ui-bundle/SHA256SUMS`, validates asset
-formats, checksums, and privacy patterns, and compares the completed archive
-with the source tree.
+`plazmic-ui/` as its archive root and `release-assets/aya-legends-bundle.zip`
+with the upstream `uifiles/AYA_Legends/` plus generic layout structure. The
+verifier compares each tree with its independent manifest, validates asset
+formats, checksums, modes, allowlisted layouts, and privacy patterns, and
+compares each completed archive with its source tree.
 
 ## Test design
 
@@ -72,9 +73,9 @@ No fixture comes from EverQuest. Coverage includes:
 - multi-window drag, size, alignment, and distribution geometry; and
 - atomic multi-section INI updates and request validation.
 
-Bundle coverage verifies the required manifest and rejects character
-`UI_*.ini` layouts, backups, checksum sidecars, unexpected file types,
-symlinks, and executable bits.
+Bundle coverage verifies both manifests and rejects unapproved `UI_*.ini`
+layouts, backups, checksum sidecars, unexpected file types, symlinks, and
+executable bits. Aya's exact generic layout is the sole layout exception.
 
 Add a regression test for every behavior fix. Prefer a temporary filesystem
 over mocks; use a narrow mock only to force an otherwise impractical failure.
@@ -112,11 +113,10 @@ Before committing:
 
 1. Run `make check`.
 2. Inspect `git status --short` and the complete diff.
-3. Keep game assets outside the public tree until repository owners confirm
-   they hold express written Daybreak authorization for the exact files and
-   source/release channels; retain the authorization record privately.
+3. Confirm every added asset belongs to one of the reviewed user-created UI
+   packages and record its source and attribution.
 4. Confirm ignored private paths are absent from `git ls-files` and all tracked
-   game assets are confined to `ui-bundle/plazmic-ui/`.
+   game assets are confined to the two approved `ui-bundle/` roots.
 5. Run the bundle, repository hygiene, privacy, and secret checks.
 6. Review visible changes using an ignored screenshot.
 7. Run independent review only after confirming the diff is public-safe.
@@ -145,10 +145,6 @@ PyInstaller is not a cross-compiler. The release workflow builds the Windows
 `.exe` on a Windows runner and the ELF binary on a Linux runner. A manual
 workflow dispatch builds and smoke-tests both without creating a release. A
 matching `vMAJOR.MINOR.PATCH` tag publishes only after both jobs pass.
-The release workflow uploads `plazmic-ui-bundle.zip` only when repository
-owners set `UI_BUNDLE_AUTHORIZED_MANIFEST_SHA256` to the SHA-256 of the exact
-reviewed `ui-bundle/SHA256SUMS` after recording express written authorization
-from Daybreak for those files and the release channel. A changed manifest no
-longer matches that approval. Without a matching repository variable, the
-Studio executables still publish and the bundle remains absent from the
-release.
+The release workflow rebuilds and verifies both UI archives from their reviewed
+manifests, then publishes them alongside the Studio executables and the release
+checksum file.

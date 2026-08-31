@@ -31,16 +31,18 @@ File operations are deliberately narrow:
   top-level manifest XML inherited from the `default` skin during capture;
 - Studio reads come from the selected local skin and layout workspaces;
 - XML access is limited to top-level regular `.xml` files;
-- game writes target only `uifiles/plazmic-ui` and one selected existing
-  top-level `UI_*.ini`;
+- game writes target only the allowlisted `uifiles/plazmic-ui` or
+  `uifiles/AYA_Legends` directory and one selected existing top-level
+  `UI_*.ini`;
 - source and target symlinks are rejected; and
 - existing targets are backed up before replacement, with rollback on a
   partial publish failure.
 
 Packaged Studio workspaces live under the current user's local application-data
 directory unless `PLAZMIC_UI_DATA_DIR` explicitly selects another root. Release
-binaries contain no game files or user data. The release UI bundle is a
-separate archive and contains no character layouts or user data.
+binaries contain no game files or user data. The release UI packages are
+separate archives and contain no personal character layouts or user data.
+Aya's reviewed generic layout template is not character data.
 
 The project does not patch the game, inject code, automate gameplay, synthesize
 input, access credentials, or change gameplay state.

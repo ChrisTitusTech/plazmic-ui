@@ -94,7 +94,13 @@ def lint_advanced_loot(path: Path, root: ET.Element) -> list[Finding]:
     return findings
 
 
-def lint_directory(ui_dir: Path, *, check_format: bool) -> tuple[list[Finding], int]:
+def lint_directory(
+    ui_dir: Path,
+    *,
+    check_format: bool,
+    profile: str = "plazmic",
+    inherited_includes: frozenset[str] = frozenset(),
+) -> tuple[list[Finding], int]:
     findings: list[Finding] = []
 
     if not ui_dir.is_dir():
@@ -199,17 +205,18 @@ def lint_directory(ui_dir: Path, *, check_format: bool) -> tuple[list[Finding], 
                 findings.append(Finding(equi_path, "contains an empty Include"))
             elif Path(include).name != include or not include.endswith(".xml"):
                 findings.append(Finding(equi_path, f"unsafe Include path: {include!r}"))
-            elif folded_include not in available_names:
+            elif folded_include not in available_names and folded_include not in inherited_includes:
                 findings.append(Finding(equi_path, f"missing included file: {include}"))
             if count > 1:
                 findings.append(Finding(equi_path, f"duplicate Include: {include}"))
 
-    advanced_path = ui_dir / "EQUI_AdvancedLootWnd.xml"
-    advanced_root = parsed.get(advanced_path)
-    if advanced_root is None:
-        findings.append(Finding(advanced_path, "missing or invalid Advanced Loot XML"))
-    else:
-        findings.extend(lint_advanced_loot(advanced_path, advanced_root))
+    if profile == "plazmic":
+        advanced_path = ui_dir / "EQUI_AdvancedLootWnd.xml"
+        advanced_root = parsed.get(advanced_path)
+        if advanced_root is None:
+            findings.append(Finding(advanced_path, "missing or invalid Advanced Loot XML"))
+        else:
+            findings.extend(lint_advanced_loot(advanced_path, advanced_root))
 
     if check_format:
         for path in parsed:
@@ -232,13 +239,27 @@ def lint_directory(ui_dir: Path, *, check_format: bool) -> tuple[list[Finding], 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Lint a materialized Plazmic EverQuest UI.")
     parser.add_argument("--check-format", action="store_true")
+    parser.add_argument("--profile", choices=("generic", "plazmic"), default="plazmic")
+    parser.add_argument(
+        "--inherited-include",
+        action="append",
+        default=[],
+        metavar="FILENAME",
+        help="allow an EQUI.xml include supplied by the game's default UI",
+    )
     parser.add_argument("ui_directory", type=Path)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    findings, xml_count = lint_directory(args.ui_directory, check_format=args.check_format)
+    inherited_includes = frozenset(name.casefold() for name in args.inherited_include)
+    findings, xml_count = lint_directory(
+        args.ui_directory,
+        check_format=args.check_format,
+        profile=args.profile,
+        inherited_includes=inherited_includes,
+    )
     if findings:
         for finding in findings:
             print(f"{finding.path}: {finding.message}", file=sys.stderr)

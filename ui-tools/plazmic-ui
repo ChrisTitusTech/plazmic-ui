@@ -13,11 +13,11 @@ Usage: ./plazmic-ui <command> [options]
 
 Commands:
   sync      Clone default_modern, improve it, format it, and lint it
-  capture   Capture the current installed skin and selected UI INI
+  capture   Capture Plazmic UI or Aya plus a selected UI INI
   studio    Open the local drag-and-drop layout editor
   format    Format the materialized XML files
   lint      Lint the materialized UI
-  install   Install the materialized UI beside default_modern
+  install   Install the selected materialized UI beside default_modern
   publish   Publish edits for live /loadskin testing (creates backups)
 
 Set EQ_LEGENDS_DIR or pass --game-dir to commands that access the game.
@@ -47,6 +47,15 @@ case "$command_name" in
     exec "$script_dir/format-ui.sh" "$workspace_dir" "$@"
     ;;
   lint)
+    if [ -f "$workspace_dir/.plazmic-upstream" ] && {
+      grep -qx 'skin=aya' "$workspace_dir/.plazmic-upstream" ||
+        grep -q '^captured_at=' "$workspace_dir/.plazmic-upstream"
+    }; then
+      exec python3 "$script_dir/lint-ui.py" \
+        --profile generic \
+        --inherited-include SIDL.xml \
+        "$workspace_dir" "$@"
+    fi
     exec python3 "$script_dir/lint-ui.py" --check-format "$workspace_dir" "$@"
     ;;
   install)

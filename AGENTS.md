@@ -4,14 +4,17 @@
 
 Plazmic UI is a public EverQuest Legends UI bundle and editing toolkit. Its
 source workflow targets Linux, while GitHub releases package the browser Studio
-as one-file Linux and Windows executables and the skin as a separate ZIP.
-It includes a ready-to-install skin, can copy UI source from the user's own game
-installation, previews and edits `UI_*.ini` layouts in a loopback-only browser
-Studio, validates EQ XML, and publishes explicit local changes with backups.
+as one-file Linux and Windows executables and the Plazmic and Aya skins as
+separate ZIPs. It includes ready-to-install skins, can copy UI source from the
+user's own game installation, previews and edits `UI_*.ini` layouts in a
+loopback-only browser Studio, validates EQ XML, and publishes explicit local
+changes with backups.
 
-The reviewed `ui-bundle/plazmic-ui/` tree contains the distributable game UI
-assets. The repository never contains user layouts, game binaries, Wine-prefix
-content, account data, character data, or assets outside that approved bundle.
+The reviewed `ui-bundle/plazmic-ui/` and `ui-bundle/aya-legends/` trees contain
+the distributable game UI assets. The Aya tree may contain only the reviewed
+generic `UI_Character_Server_LO1.ini` layout. The repository never contains
+personal layouts, game binaries, Wine-prefix content, account data, character
+data, or assets outside those approved bundles.
 
 ## Architecture
 
@@ -21,6 +24,7 @@ content, account data, character data, or assets outside that approved bundle.
 - `ui-tools/studio/`: dependency-free HTML, CSS, and JavaScript browser client.
 - `ui-bundle/plazmic-ui/`: reviewed installable skin assets without character
   layouts or user data.
+- `ui-bundle/aya-legends/`: reviewed Aya skin assets and its generic layout.
 - `tests/`: synthetic unit and integration fixtures with no game content.
 - `docs/`: user workflow, architecture, development, and security guidance.
 - `.plazmic-ui-workspace/` contains the generated skin, layouts, backups, and
@@ -36,15 +40,18 @@ Windows. The Studio uses a current browser and binds only to `127.0.0.1`.
 - Preserve unrelated user changes and local ignored workspaces.
 - Never commit or print personal `UI_*.ini` contents, game paths, account data,
   character names, logs, crash dumps, credentials, or unreviewed local assets.
-- Game assets may be tracked only under `ui-bundle/plazmic-ui/` after bundle,
-  privacy, provenance, and format validation. Never include top-level
+- Game assets may be tracked only under `ui-bundle/plazmic-ui/` or
+  `ui-bundle/aya-legends/` after bundle, privacy, provenance, and format
+  validation. The only allowed character-shaped layout is Aya's reviewed
+  generic `UI_Character_Server_LO1.ini`; never include any other top-level
   `UI_*.ini`, checksum sidecars, backups, executables, or local metadata.
 - Studio binaries may contain only project source, the static Studio frontend,
   the Python runtime, and PyInstaller runtime components. Ship the UI bundle as
   a separate archive.
 - Do not modify `default` or `default_modern` in place.
-- Restrict writes to the local repository workspaces, `uifiles/plazmic-ui`, and
-  one explicitly selected top-level `UI_*.ini`.
+- Restrict writes to the local repository workspaces, the explicitly selected
+  allowlisted `uifiles/plazmic-ui` or `uifiles/AYA_Legends` target, and one
+  explicitly selected top-level `UI_*.ini`.
 - Back up an existing target before replacement and fail closed on symlinks,
   invalid paths, malformed XML/INI data, or incomplete source trees.
 - Do not patch binaries, inject code, automate gameplay, synthesize input, or
@@ -75,8 +82,9 @@ EQ_LEGENDS_DIR='/path/to/EverQuest Legends' ./plazmic-ui publish
 - Run ShellCheck and shfmt for every shell-script change.
 - Run Ruff, Python compilation, and unit tests for every Python change.
 - Run Markdownlint for documentation changes.
-- Validate the tracked bundle and its archive for character layouts, sidecars,
-  symlinks, executable bits, format errors, and sensitive path/token patterns.
+- Validate both tracked bundles and their archives for unexpected character
+  layouts, sidecars, symlinks, executable bits, format errors, and sensitive
+  path/token patterns.
 - Verify the browser Studio against synthetic or local ignored data and retain
   a screenshot under ignored `captures/` for visible changes.
 - Inspect the final status, diff, ignored-file boundary, executable bits,

@@ -31,10 +31,13 @@ game process, or a patched skin whose XML differs from the reviewed baseline.
   skin workspace, excludes checksum/backup sidecars, applies only hash-reviewed
   transformations, formats XML, and validates the result.
 - `capture` copies one explicitly selected current top-level `UI_*.ini` into
-  the ignored layout workspace and captures the installed `plazmic-ui` skin,
-  falling back to `default_modern` only when no installed Plazmic skin exists.
-  Missing manifest XML inherited by that skin is materialized only from the
-  read-only `default` skin before the completed capture is validated.
+  the ignored layout workspace and captures the explicitly selected
+  `plazmic-ui` or `AYA_Legends` skin. Plazmic capture falls back to
+  `default_modern` when no installed Plazmic skin exists; Aya capture requires
+  an installed Aya skin. Missing manifest XML inherited by either skin is
+  materialized only from the read-only `default` skin before validation.
+- Store the allowlisted skin choice in ignored Studio configuration and reuse
+  it for Studio, install, and publish unless `--skin` selects another skin.
 - Existing local workspaces are preserved as timestamped backups before a
   refresh or replacement.
 
@@ -83,34 +86,34 @@ game process, or a patched skin whose XML differs from the reviewed baseline.
 ### Install and publish
 
 - The Linux source-only `install` command validates the materialized skin and
-  writes only the sibling `uifiles/plazmic-ui` directory. It refuses while
-  `eqgame.exe` is running.
-- `publish` is the explicit live-test path. It validates and stages the skin,
-  asks which existing top-level `UI_*.ini` to replace, backs up both targets,
-  and writes no other game file.
+  writes only the selected sibling `uifiles/plazmic-ui` or
+  `uifiles/AYA_Legends` directory. It refuses while `eqgame.exe` is running.
+- `publish` is the explicit live-test path. It validates and stages the skin
+  into its selected allowlisted directory, asks which existing top-level
+  `UI_*.ini` to replace, backs up both targets, and writes no other game file.
 - A failed publish must restore any target already moved during that publish.
 - Neither operation may follow workspace symlinks or write to `default`,
   `default_modern`, the client executable, libraries, registry, or gameplay
   state.
-- Success output provides the exact `/loadskin plazmic-ui 1` follow-up.
+- Success output provides the exact selected `/loadskin` follow-up.
 
 ### Distributable UI bundle
 
-- Track the ready-to-install skin only under `ui-bundle/plazmic-ui/` and package
-  it as a separate `plazmic-ui-bundle.zip` release asset.
-- The archive root is `plazmic-ui/`, ready to place under the game's `uifiles/`
-  directory while the game is stopped.
+- Track the ready-to-install Plazmic skin under `ui-bundle/plazmic-ui/` and the
+  Aya package under `ui-bundle/aya-legends/`. Package them as separate
+  `plazmic-ui-bundle.zip` and `aya-legends-bundle.zip` release assets.
+- The Plazmic archive root is `plazmic-ui/`. The Aya archive preserves the
+  official drop-in `uifiles/AYA_Legends/` tree and its reviewed generic
+  `UI_Character_Server_LO1.ini` layout.
 - Include the reviewed XML, texture, cursor, and generic skin INI files required
   by the skin. Keep the Studio executables separate from the asset archive.
-- Exclude every character `UI_*.ini`, backup, checksum sidecar, executable,
-  symlink, local provenance timestamp, account value, character name, personal
-  path, and credential.
-- Treat bundled game assets as third-party content outside the GPL grant and
-  retain the ownership and non-endorsement notice.
-- Publish the bundle only after obtaining express written redistribution
-  authorization from Daybreak Game Company covering the exact files and
-  distribution channel. The EULA, ownership notice, and non-endorsement notice
-  do not grant that permission.
+- Exclude every personal character `UI_*.ini`, backup, checksum sidecar,
+  executable, symlink, local provenance timestamp, account value, character
+  name, personal path, and credential. Allow only Aya's exact reviewed generic
+  layout through its bundle-specific inventory.
+- Treat bundled assets as third-party content outside the GPL grant, attribute
+  Aya Legends to Finamdar and its credited contributors, and retain the
+  ownership and non-endorsement notice.
 
 ### Validation and errors
 
@@ -156,8 +159,8 @@ renders the editor; it has no build step and no external network dependency.
 ## Security and privacy
 
 - No telemetry, analytics, updater, remote listener, account, or cloud service.
-- Reviewed game UI assets are tracked only in `ui-bundle/plazmic-ui/` and
-  packaged only in the separate UI bundle. No executable, character layout,
+- Reviewed game UI assets are tracked only in the two approved bundle roots and
+  packaged only in separate UI archives. No executable, personal layout,
   personal path, account data, character identifier, user backup, or credential
   is included.
 - The loopback API uses a random token and no-store responses. State-changing
@@ -231,6 +234,12 @@ renders the editor; it has no build step and no external network dependency.
 - AC-15: The tracked `ui-bundle/plazmic-ui/` tree and release ZIP contain a
   complete lint-clean skin and no character layout, user identifier, sidecar,
   executable, symlink, local path, credential, or GPL relicensing claim.
+- AC-16: The tracked Aya tree and release ZIP match the reviewed upstream skin
+  and generic layout, pass bundle/privacy/XML validation, and contain no
+  personal identifier, sidecar, executable, symlink, local path, credential, or
+  GPL relicensing claim. Capture, install, and publish accept only the two
+  allowlisted skin IDs and use the matching game directory and `/loadskin`
+  command.
 
 ## Resolved decisions
 
@@ -238,8 +247,8 @@ renders the editor; it has no build step and no external network dependency.
 - Visibility: public.
 - License: GPL-3.0-only, matching the source project's public licensing
   boundary while preserving independent ownership of this implementation.
-- Distribution: source, Studio-only Linux and Windows executables, and a
-  separate ready-to-install `plazmic-ui-bundle.zip` containing reviewed game UI
-  assets. The GPL applies only to original project code and documentation.
+- Distribution: source, Studio-only Linux and Windows executables, and separate
+  ready-to-install Plazmic and Aya bundles. The GPL applies only to original
+  project code and documentation.
 - Studio dependencies: Python standard library plus static browser files.
 - Default canvas: 2560x1440 with an explicit configurable resolution.

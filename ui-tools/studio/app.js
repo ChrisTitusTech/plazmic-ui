@@ -488,6 +488,7 @@ async function loadState(
   const layoutName = document.querySelector("#layout-name");
   layoutName.textContent = data.layout;
   layoutName.title = data.layout;
+  document.querySelector("#skin-name").textContent = data.skinName;
   document.querySelector("#screen-size").textContent = `${data.screen.width} x ${data.screen.height}`;
   const targetSelect = document.querySelector("#target-ini");
   targetSelect.replaceChildren(...data.targets.map((name) => new Option(name, name)));
@@ -620,7 +621,7 @@ document.querySelector("#load-button").addEventListener("click", async () => {
 
 document.querySelector("#publish-button").addEventListener("click", async () => {
   const targetIni = document.querySelector("#target-ini").value;
-  if (!targetIni || !window.confirm(`Replace the installed plazmic-ui skin and write the edited layout into ${targetIni}? Backups will be created.`)) return;
+  if (!targetIni || !window.confirm(`Replace the installed ${state.data.skinName} skin and write the edited layout into ${targetIni}? Backups will be created.`)) return;
   if (!beginMutation()) return;
   status("Publishing the skin and layout to EverQuest...");
   try {

@@ -30,6 +30,15 @@ MIN_SCREEN_EXTENT = 640
 MAX_SCREEN_EXTENT = 8192
 MAX_REQUEST_BYTES = 10 * 1024 * 1024
 WORKSPACE_DIRECTORY = ".plazmic-ui-workspace"
+DEFAULT_SKIN_ID = "plazmic-ui"
+SKIN_DIRECTORIES = {
+    "plazmic-ui": "plazmic-ui",
+    "aya": "AYA_Legends",
+}
+SKIN_DISPLAY_NAMES = {
+    "plazmic-ui": "Plazmic UI",
+    "aya": "Aya Legends",
+}
 LAYOUT_NAME_PATTERN = re.compile(r"^UI_[^/\\]+\.ini$", re.IGNORECASE)
 RESOLUTION_PATTERN = re.compile(r"^([0-9]{3,4})x([0-9]{3,4})$", re.IGNORECASE)
 SECTION_PATTERN = re.compile(r"^\[([^\]]+)\][ \t]*$")
@@ -63,6 +72,7 @@ REQUIRED_FRONTEND_MARKERS = {
         b'<option value="16" selected>',
         b'id="deselect-all"',
         b'id="load-button"',
+        b'id="skin-name"',
     ),
     "studio-model.js": (
         b"const DEFAULT_GRID_SIZE = 16;",
@@ -73,6 +83,7 @@ REQUIRED_FRONTEND_MARKERS = {
         b"deselectAllWindows",
         b"studioModel.anchoredPosition",
         b'api("/api/load"',
+        b"state.data.skinName",
     ),
 }
 
@@ -120,6 +131,7 @@ class StudioPaths:
     config: Path
     game: Path
     layout: Path
+    skin_id: str = DEFAULT_SKIN_ID
     screen_width: int = DEFAULT_SCREEN_WIDTH
     screen_height: int = DEFAULT_SCREEN_HEIGHT
 
@@ -145,6 +157,13 @@ def parse_resolution(value: str | None) -> tuple[int, int]:
             f"{MAX_SCREEN_EXTENT} pixels"
         )
     return width, height
+
+
+def normalize_skin_id(value: str | None) -> str:
+    skin_id = value or DEFAULT_SKIN_ID
+    if skin_id not in SKIN_DIRECTORIES:
+        raise ValueError(f"skin must be one of: {', '.join(SKIN_DIRECTORIES)}")
+    return skin_id
 
 
 def ignored_game_sidecar(_directory: str, names: list[str]) -> set[str]:
@@ -406,7 +425,8 @@ def layout_state(paths: StudioPaths) -> dict[str, Any]:
     return {
         "screen": {"width": paths.screen_width, "height": paths.screen_height},
         "layout": paths.layout.name,
-        "skin": paths.skin.name,
+        "skin": normalize_skin_id(paths.skin_id),
+        "skinName": SKIN_DISPLAY_NAMES[normalize_skin_id(paths.skin_id)],
         "windows": windows,
         "xmlFiles": xml_files,
         "targets": targets,
@@ -678,6 +698,7 @@ def write_config(
     game: Path,
     layout_name: str,
     resolution: tuple[int, int],
+    skin_id: str = DEFAULT_SKIN_ID,
 ) -> None:
     width, height = resolution
     contents = (
@@ -685,6 +706,7 @@ def write_config(
             {
                 "game_dir": str(game),
                 "active_layout": layout_name,
+                "active_skin": normalize_skin_id(skin_id),
                 "resolution": f"{width}x{height}",
             },
             indent=2,
@@ -755,12 +777,13 @@ def capture_layout(
     game: Path,
     layout: Path,
     resolution: tuple[int, int],
+    skin_id: str = DEFAULT_SKIN_ID,
 ) -> Path:
     contents = read_layout_contents(game, layout)
     workspace = local_workspace(repo, create=True)
     destination = workspace / "layouts" / layout.name
     atomic_write(destination, contents, workspace / "backups")
-    write_config(repo, game, layout.name, resolution)
+    write_config(repo, game, layout.name, resolution, skin_id)
     return destination
 
 
@@ -769,14 +792,21 @@ def capture_workspace(
     game: Path,
     layout: Path,
     resolution: tuple[int, int] = (DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT),
+    skin_id: str = DEFAULT_SKIN_ID,
 ) -> tuple[Path, Path]:
     read_layout_contents(game, layout)
-    installed_skin = game / "uifiles" / "plazmic-ui"
-    source_skin = (
-        installed_skin
-        if (installed_skin / "EQUI.xml").is_file()
-        else game / "uifiles" / "default_modern"
-    )
+    skin_id = normalize_skin_id(skin_id)
+    installed_skin = game / "uifiles" / SKIN_DIRECTORIES[skin_id]
+    if skin_id == "aya":
+        source_skin = installed_skin
+        if not (source_skin / "EQUI.xml").is_file():
+            raise ValueError("Aya Legends is not installed under uifiles/AYA_Legends")
+    else:
+        source_skin = (
+            installed_skin
+            if (installed_skin / "EQUI.xml").is_file()
+            else game / "uifiles" / "default_modern"
+        )
     if not (source_skin / "EQUI.xml").is_file():
         raise ValueError("no usable UI skin was found in the selected game directory")
     symlink = first_symlink(source_skin)
@@ -796,7 +826,8 @@ def capture_workspace(
         )
         materialize_manifest_fallback(staging, game / "uifiles" / "default")
         (staging / ".plazmic-upstream").write_text(
-            f"source={source_skin.name}\ncaptured_at={datetime.now().astimezone().isoformat()}\n",
+            f"skin={skin_id}\nsource={source_skin.name}\n"
+            f"captured_at={datetime.now().astimezone().isoformat()}\n",
             encoding="ascii",
         )
         if skin_destination.exists():
@@ -811,7 +842,7 @@ def capture_workspace(
         if staging.exists():
             shutil.rmtree(staging)
 
-    layout_destination = capture_layout(repo, game, layout, resolution)
+    layout_destination = capture_layout(repo, game, layout, resolution, skin_id)
     return skin_destination, layout_destination
 
 
@@ -891,7 +922,8 @@ def publish_workspace(paths: StudioPaths, target_name: str) -> dict[str, str]:
     if len(layout_contents) > MAX_REQUEST_BYTES:
         raise ValueError(f"layout exceeds the {MAX_REQUEST_BYTES}-byte limit")
 
-    skin_target = paths.game / "uifiles" / "plazmic-ui"
+    skin_directory = SKIN_DIRECTORIES[normalize_skin_id(paths.skin_id)]
+    skin_target = paths.game / "uifiles" / skin_directory
     skin_backup = copy_skin_atomically(paths.skin, skin_target)
     layout_backup = target_layout.parent / f"{target_layout.name}.backup-{timestamp()}"
     temporary: Path | None = None
@@ -925,7 +957,7 @@ def publish_workspace(paths: StudioPaths, target_name: str) -> dict[str, str]:
         "layout": target_layout.name,
         "layoutBackup": layout_backup.name,
         "instructions": (
-            "In EQ run /loadskin plazmic-ui 1, then /copylayout if the target "
+            f"In EQ run /loadskin {skin_directory} 1, then /copylayout if the target "
             "character is different."
         ),
     }
@@ -947,6 +979,24 @@ def load_local_config(repo: Path) -> dict[str, str]:
     return {key: str(item) for key, item in value.items() if isinstance(item, str)}
 
 
+def workspace_skin_id(skin: Path) -> str | None:
+    metadata = skin / ".plazmic-upstream"
+    if not metadata.exists():
+        return None
+    if is_link_like(metadata) or not metadata.is_file():
+        raise ValueError("workspace skin metadata must be a physical regular file")
+    try:
+        lines = metadata.read_text(encoding="ascii").splitlines()
+    except (OSError, UnicodeError) as error:
+        raise ValueError("workspace skin metadata must be readable US-ASCII") from error
+    values = dict(line.split("=", maxsplit=1) for line in lines if "=" in line)
+    if "skin" in values:
+        return normalize_skin_id(values["skin"])
+    if values.get("source") == SKIN_DIRECTORIES["aya"]:
+        return "aya"
+    return DEFAULT_SKIN_ID
+
+
 def resolve_paths(args: argparse.Namespace, repo: Path) -> StudioPaths:
     config = load_local_config(repo)
     game_value = args.game_dir or os.environ.get("EQ_LEGENDS_DIR") or config.get("game_dir")
@@ -957,6 +1007,13 @@ def resolve_paths(args: argparse.Namespace, repo: Path) -> StudioPaths:
         raise ValueError("eqgame.exe was not found in the selected game directory")
     layout_name = args.layout or config.get("active_layout")
     workspace = local_workspace(repo, create=False)
+    workspace_skin = workspace / "skin"
+    captured_skin = workspace_skin_id(workspace_skin)
+    selected_skin = normalize_skin_id(
+        getattr(args, "skin", None) or config.get("active_skin") or captured_skin
+    )
+    if captured_skin is not None and captured_skin != selected_skin:
+        raise ValueError("selected skin does not match the captured workspace")
     layout_dir = workspace / "layouts"
     if layout_name:
         if Path(layout_name).name != layout_name:
@@ -976,12 +1033,13 @@ def resolve_paths(args: argparse.Namespace, repo: Path) -> StudioPaths:
     resolution = parse_resolution(args.resolution or config.get("resolution"))
     return StudioPaths(
         repo=repo,
-        skin=workspace / "skin",
+        skin=workspace_skin,
         layouts=layout_dir,
         backups=workspace / "backups",
         config=workspace / "studio.json",
         game=game,
         layout=layout,
+        skin_id=selected_skin,
         screen_width=resolution[0],
         screen_height=resolution[1],
     )
@@ -1149,6 +1207,7 @@ def serve(paths: StudioPaths, static_dir: Path, port: int, open_browser: bool) -
     url = f"{server.origin}/"
     print(f"Plazmic UI Studio: {url}")
     print(f"Editing layout: {paths.layout.name}")
+    print(f"Selected skin: {SKIN_DISPLAY_NAMES[normalize_skin_id(paths.skin_id)]}")
     print("Press Ctrl-C to stop.")
     if open_browser:
         webbrowser.open(url)
@@ -1170,6 +1229,7 @@ def parse_args() -> argparse.Namespace:
     )
     capture_parser.add_argument("--game-dir")
     capture_parser.add_argument("--layout")
+    capture_parser.add_argument("--skin", choices=sorted(SKIN_DIRECTORIES))
     capture_parser.add_argument(
         "--resolution",
         help="mock canvas size as WIDTHxHEIGHT (default: 2560x1440)",
@@ -1187,6 +1247,7 @@ def parse_args() -> argparse.Namespace:
     )
     serve_parser.add_argument("--game-dir")
     serve_parser.add_argument("--layout")
+    serve_parser.add_argument("--skin", choices=sorted(SKIN_DIRECTORIES))
     serve_parser.add_argument("--resolution", help="mock canvas size as WIDTHxHEIGHT")
     serve_parser.add_argument("--port", type=int, default=0)
     serve_parser.add_argument("--no-browser", action="store_true")
@@ -1196,6 +1257,7 @@ def parse_args() -> argparse.Namespace:
     )
     publish_parser.add_argument("--game-dir")
     publish_parser.add_argument("--layout")
+    publish_parser.add_argument("--skin", choices=sorted(SKIN_DIRECTORIES))
     publish_parser.add_argument("--resolution", help=argparse.SUPPRESS)
     publish_parser.add_argument("--target-ini")
 
@@ -1218,7 +1280,8 @@ def main() -> int:
             return 0
 
         if args.command == "capture":
-            game_value = args.game_dir or os.environ.get("EQ_LEGENDS_DIR")
+            config = load_local_config(repo)
+            game_value = args.game_dir or os.environ.get("EQ_LEGENDS_DIR") or config.get("game_dir")
             if not game_value:
                 raise ValueError("set EQ_LEGENDS_DIR or pass --game-dir")
             game = Path(game_value).expanduser().resolve()
@@ -1226,16 +1289,22 @@ def main() -> int:
                 raise ValueError("eqgame.exe was not found in the selected game directory")
             layout = choose_layout(game, args.layout)
             resolution = parse_resolution(args.resolution)
+            requested_skin = args.skin or config.get("active_skin")
             if args.layout_only:
                 skin = repo / WORKSPACE_DIRECTORY / "skin"
                 if not (skin / "EQUI.xml").is_file():
                     raise ValueError(
                         "layout-only capture requires an existing private skin workspace"
                     )
-                local_layout = capture_layout(repo, game, layout, resolution)
+                captured_skin = workspace_skin_id(skin)
+                skin_id = normalize_skin_id(requested_skin or captured_skin)
+                if captured_skin is not None and captured_skin != skin_id:
+                    raise ValueError("selected skin does not match the captured workspace")
+                local_layout = capture_layout(repo, game, layout, resolution, skin_id)
             else:
-                skin, local_layout = capture_workspace(repo, game, layout, resolution)
-                print("Captured the private skin workspace.")
+                skin_id = normalize_skin_id(requested_skin)
+                skin, local_layout = capture_workspace(repo, game, layout, resolution, skin_id)
+                print(f"Captured the private {SKIN_DISPLAY_NAMES[skin_id]} workspace.")
             print(f"Captured layout: {local_layout.name}")
             print("Open the editor with: ./plazmic-ui studio")
             return 0

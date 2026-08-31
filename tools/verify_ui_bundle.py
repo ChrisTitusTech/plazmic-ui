@@ -8,10 +8,13 @@ import re
 import stat
 import sys
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 
 ALLOWED_SUFFIXES = {".cur", ".dds", ".ini", ".tga", ".xml"}
 MANIFEST_NAME = "SHA256SUMS"
+AYA_MANIFEST_NAME = "AYA_LEGENDS_SHA256SUMS"
+AYA_LAYOUT_NAME = "UI_Character_Server_LO1.ini"
 SENSITIVE_PATTERNS = {
     "absolute home path": re.compile(rb"/(?:home|Users)/[A-Za-z0-9._-]+/"),
     "Wine user path": re.compile(rb"drive_c/users/[A-Za-z0-9._-]+", re.IGNORECASE),
@@ -26,6 +29,44 @@ SENSITIVE_PATTERNS = {
 }
 ASCII_TEXT = re.compile(rb"[\x20-\x7e]{4,}")
 UTF16LE_TEXT = re.compile(rb"(?:[\x20-\x7e]\x00){4,}")
+
+
+@dataclass(frozen=True)
+class BundleKind:
+    name: str
+    manifest_name: str
+    manifest_prefix: str
+    skin_relative: Path
+    archive_prefix: Path | None
+    allowed_layouts: frozenset[Path]
+
+
+BUNDLE_KINDS = {
+    "plazmic-ui": BundleKind(
+        name="plazmic-ui",
+        manifest_name=MANIFEST_NAME,
+        manifest_prefix="plazmic-ui",
+        skin_relative=Path("."),
+        archive_prefix=Path("plazmic-ui"),
+        allowed_layouts=frozenset(),
+    ),
+    "aya-legends": BundleKind(
+        name="aya-legends",
+        manifest_name=AYA_MANIFEST_NAME,
+        manifest_prefix="aya-legends",
+        skin_relative=Path("uifiles/AYA_Legends"),
+        archive_prefix=None,
+        allowed_layouts=frozenset({Path(AYA_LAYOUT_NAME)}),
+    ),
+}
+
+
+def bundle_kind(name: str | None, root: Path) -> BundleKind:
+    resolved_name = name or ("aya-legends" if root.name == "aya-legends" else "plazmic-ui")
+    try:
+        return BUNDLE_KINDS[resolved_name]
+    except KeyError as error:
+        raise ValueError(f"unsupported bundle kind: {resolved_name}") from error
 
 
 def embedded_text(contents: bytes) -> bytes:
@@ -143,7 +184,7 @@ def validate_format(path: Path, contents: bytes) -> None:
             raise ValueError(f"bundle contains a possible {label}")
 
 
-def read_manifest(manifest: Path) -> dict[str, str]:
+def read_manifest(manifest: Path, prefix: str = "plazmic-ui") -> dict[str, str]:
     if manifest.is_symlink() or not manifest.is_file():
         raise ValueError("bundle checksum manifest must be a physical regular file")
     expected: dict[str, str] = {}
@@ -157,7 +198,7 @@ def read_manifest(manifest: Path) -> dict[str, str]:
         if (
             path.is_absolute()
             or len(path.parts) < 2
-            or path.parts[0] != "plazmic-ui"
+            or path.parts[0] != prefix
             or ".." in path.parts
             or "\\" in name
         ):
@@ -173,10 +214,16 @@ def read_manifest(manifest: Path) -> dict[str, str]:
     return expected
 
 
-def verify_bundle(root: Path, manifest: Path | None = None) -> int:
+def verify_bundle(
+    root: Path,
+    manifest: Path | None = None,
+    kind: str | None = None,
+) -> int:
+    selected_kind = bundle_kind(kind, root)
     if root.is_symlink() or not root.is_dir():
         raise ValueError("bundle root must be a physical directory")
-    if not (root / "EQUI.xml").is_file():
+    skin_root = root / selected_kind.skin_relative
+    if not (skin_root / "EQUI.xml").is_file():
         raise ValueError("bundle is missing EQUI.xml")
 
     actual_files: dict[str, str] = {}
@@ -189,8 +236,13 @@ def verify_bundle(root: Path, manifest: Path | None = None) -> int:
         if not path.is_file():
             raise ValueError("bundle entries must be regular files")
         lower_name = path.name.lower()
-        if lower_name.startswith("ui_") and lower_name.endswith(".ini"):
-            raise ValueError("bundle must not contain character UI_*.ini layouts")
+        relative_path = path.relative_to(root)
+        if (
+            lower_name.startswith("ui_")
+            and lower_name.endswith(".ini")
+            and relative_path not in selected_kind.allowed_layouts
+        ):
+            raise ValueError("bundle contains an unapproved character UI_*.ini layout")
         if path.name.endswith(":crc") or path.suffix.lower() in {".bak", ".crc"}:
             raise ValueError("bundle must not contain backup or checksum sidecars")
         if path.suffix.lower() not in ALLOWED_SUFFIXES:
@@ -208,7 +260,10 @@ def verify_bundle(root: Path, manifest: Path | None = None) -> int:
 
     if not actual_files:
         raise ValueError("bundle is empty")
-    expected_files = read_manifest(manifest or root.parent / MANIFEST_NAME)
+    expected_files = read_manifest(
+        manifest or root.parent / selected_kind.manifest_name,
+        selected_kind.manifest_prefix,
+    )
     if set(actual_files) != set(expected_files):
         raise ValueError("bundle inventory differs from the reviewed checksum manifest")
     for relative, digest in actual_files.items():
@@ -217,7 +272,8 @@ def verify_bundle(root: Path, manifest: Path | None = None) -> int:
     return len(actual_files)
 
 
-def verify_archive(archive: Path, root: Path) -> int:
+def verify_archive(archive: Path, root: Path, kind: str | None = None) -> int:
+    selected_kind = bundle_kind(kind, root)
     if archive.is_symlink() or not archive.is_file():
         raise ValueError("bundle archive must be a physical regular file")
 
@@ -231,13 +287,12 @@ def verify_archive(archive: Path, root: Path) -> int:
         for entry in handle.infolist():
             name = entry.filename
             path = Path(name)
-            if (
-                "\\" in name
-                or path.is_absolute()
-                or not path.parts
-                or path.parts[0] != "plazmic-ui"
-                or ".." in path.parts
-            ):
+            expected_prefix = selected_kind.archive_prefix
+            if "\\" in name or path.is_absolute() or not path.parts or ".." in path.parts:
+                raise ValueError("bundle archive contains an unsafe or unexpected path")
+            if expected_prefix is not None and path.parts[0] != expected_prefix.as_posix():
+                raise ValueError("bundle archive contains an unsafe or unexpected path")
+            if expected_prefix is None and path.parts[0] not in {"uifiles", AYA_LAYOUT_NAME}:
                 raise ValueError("bundle archive contains an unsafe or unexpected path")
             normalized_name = Path(*path.parts).as_posix()
             folded_name = normalized_name.casefold()
@@ -250,12 +305,16 @@ def verify_archive(archive: Path, root: Path) -> int:
                 raise ValueError("bundle archive contains a symbolic link")
             if entry.is_dir():
                 continue
-            if len(path.parts) == 1:
+            if expected_prefix is not None and len(path.parts) == 1:
                 raise ValueError("bundle archive contains a file at its root")
             if mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
                 raise ValueError("bundle archive contains an executable file")
 
-            relative = Path(*path.parts[1:]).as_posix()
+            relative = (
+                Path(*path.parts[1:]).as_posix()
+                if expected_prefix is not None
+                else Path(*path.parts).as_posix()
+            )
             archived_files[relative] = entry
 
         if set(archived_files) != set(expected_files):
@@ -276,6 +335,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Verify the distributable EverQuest UI bundle")
     parser.add_argument("--archive", type=Path)
     parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--kind", choices=sorted(BUNDLE_KINDS))
     parser.add_argument("bundle", type=Path)
     return parser.parse_args()
 
@@ -283,9 +343,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        file_count = verify_bundle(args.bundle, args.manifest)
+        file_count = verify_bundle(args.bundle, args.manifest, args.kind)
         if args.archive is not None:
-            archive_count = verify_archive(args.archive, args.bundle)
+            archive_count = verify_archive(args.archive, args.bundle, args.kind)
             if archive_count != file_count:
                 raise ValueError("bundle archive file count differs from the source tree")
     except (OSError, ValueError, zipfile.BadZipFile) as error:
@@ -293,7 +353,8 @@ def main() -> int:
         return 1
     archive_suffix = " and release archive" if args.archive is not None else ""
     print(
-        f"Verified UI bundle{archive_suffix}: {file_count} files, no character layouts or sidecars."
+        f"Verified UI bundle{archive_suffix}: {file_count} files, "
+        "no unexpected layouts or sidecars."
     )
     return 0
 

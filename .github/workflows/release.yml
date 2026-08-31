@@ -148,18 +148,12 @@ jobs:
 
       - name: Publish release
         env:
-          UI_BUNDLE_AUTHORIZED_MANIFEST_SHA256: >-
-            ${{ vars.UI_BUNDLE_AUTHORIZED_MANIFEST_SHA256 }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          authorized_manifest="$UI_BUNDLE_AUTHORIZED_MANIFEST_SHA256"
-          current_manifest="$(sha256sum ui-bundle/SHA256SUMS | cut -d ' ' -f 1)"
           cd release-assets
-          set -- plazmic-ui-studio-*
-          if [ -n "$authorized_manifest" ] && \
-             [ "$authorized_manifest" = "$current_manifest" ]; then
-            set -- "$@" plazmic-ui-bundle.zip
-          fi
+          set -- plazmic-ui-studio-* \
+            plazmic-ui-bundle.zip \
+            aya-legends-bundle.zip
           sha256sum "$@" > SHA256SUMS
           gh release create "$GITHUB_REF_NAME" \
             "$@" SHA256SUMS \

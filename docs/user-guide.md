@@ -2,10 +2,11 @@
 
 ## Install the UI bundle
 
-Stop EverQuest before replacing a skin. Extract `plazmic-ui-bundle.zip` and
-copy its complete `plazmic-ui/` directory into the game's `uifiles/` directory.
-From a source checkout, copy `ui-bundle/plazmic-ui/` to the same destination.
-Do not merge the files into `default` or `default_modern`.
+Stop EverQuest before replacing a skin. For Plazmic UI, extract
+`plazmic-ui-bundle.zip` and copy its complete `plazmic-ui/` directory into the
+game's `uifiles/` directory. From a source checkout, copy
+`ui-bundle/plazmic-ui/` to the same destination. Do not merge the files into
+`default` or `default_modern`.
 
 Start EverQuest and load the skin:
 
@@ -13,9 +14,18 @@ Start EverQuest and load the skin:
 /loadskin plazmic-ui 1
 ```
 
-The bundle contains no character `UI_*.ini`, so it does not change a
+For Aya Legends, extract `aya-legends-bundle.zip` into the game directory. The
+archive preserves `uifiles/AYA_Legends/` and includes the upstream generic
+`UI_Character_Server_LO1.ini` template. Load it with:
+
+```text
+/loadskin AYA_Legends 1
+```
+
+The Plazmic bundle contains no character `UI_*.ini`, so it does not change a
 character's saved window layout. The Studio workflow below can capture and edit
-one explicitly selected local layout when desired.
+one explicitly selected local layout when desired. Aya's template is generic;
+rename or copy it only through the normal EverQuest layout workflow.
 
 ## Packaged Studio executables
 
@@ -95,6 +105,16 @@ When multiple layouts exist, choose interactively or pass a filename:
 
 Capture replaces the local skin workspace only after staging the new copy. An
 existing skin is renamed to a timestamped `skin.backup-*` path.
+
+To edit Aya, install it first and select it during capture:
+
+```bash
+./plazmic-ui capture --skin aya --layout UI_example.ini
+```
+
+Aya capture requires `uifiles/AYA_Legends`; it does not silently substitute a
+different skin. The selection is saved in private `studio.json` and reused by
+Studio, install, and publish. Pass `--skin plazmic-ui` to switch back.
 
 ## Path B: Build the reviewed derivative
 
@@ -208,17 +228,23 @@ For an offline install, exit EverQuest and run:
 ./plazmic-ui install
 ```
 
+The remembered capture choice controls the target. It can also be explicit:
+
+```bash
+./plazmic-ui install --skin aya
+```
+
 For intentional live iteration, use the Studio button or:
 
 ```bash
 ./plazmic-ui publish --target-ini UI_example.ini
 ```
 
-Publish stages and validates the skin, backs up both the installed
-`uifiles/plazmic-ui` directory and selected layout, and restores both targets
-after a partial publish failure. The skin backup is a timestamped sibling of
-`uifiles/plazmic-ui`; the layout backup is a timestamped sibling of the selected
-top-level `UI_*.ini`. It does not stop or control the game.
+Publish stages and validates the skin, backs up both the selected installed
+skin directory and layout, and restores both targets after a partial publish
+failure. The target is fixed to `uifiles/plazmic-ui` or
+`uifiles/AYA_Legends` from the remembered selection; arbitrary directory names
+are never accepted. It does not stop or control the game.
 
 Reload in game:
 
@@ -234,11 +260,12 @@ use EverQuest's `/copylayout` interface to apply it, then reload the skin.
 | Path | Purpose | Public? |
 | --- | --- | --- |
 | `ui-bundle/plazmic-ui/` | Reviewed installable skin assets | Yes |
+| `ui-bundle/aya-legends/` | Reviewed Aya package and generic layout | Yes |
 | `.plazmic-ui-workspace/skin/` | Materialized skin and copied assets | No |
 | `.plazmic-ui-workspace/layouts/` | Selected personal layouts | No |
 | `.plazmic-ui-workspace/backups/` | Local Studio edit backups | No |
-| `.plazmic-ui-workspace/studio.json` | Local path, layout, and resolution | No |
+| `.plazmic-ui-workspace/studio.json` | Local path, skin, layout, and resolution | No |
 | `captures/` | Screenshots and local evidence | No |
 
 The private workspace and capture paths are ignored. Do not force-add or upload
-them; only the reviewed `ui-bundle/plazmic-ui/` tree is public.
+them; only the two reviewed `ui-bundle/` trees are public.

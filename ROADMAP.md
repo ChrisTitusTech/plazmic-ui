@@ -347,3 +347,53 @@ character identifiers remain excluded.
 Remove the bundle tree and release-archive step while retaining the Studio and
 local materialization workflow. Remove any affected public artifact immediately
 if private data is discovered.
+
+## Phase 10: Aya bundle and multi-skin selection
+
+### Outcome
+
+Players can choose Plazmic UI or Aya Legends for download, capture, editing,
+install, publish, and the exact in-game reload command.
+
+### Included work
+
+- Track the reviewed Aya skin and its generic layout in a separate bundle root.
+- Produce independently verified Plazmic and Aya release archives.
+- Add an allowlisted `--skin` choice stored in private Studio configuration.
+- Route install and publish only to the selected known game-skin directory.
+- Separate generic EQ XML checks from Plazmic-specific transformation checks.
+- Document Aya authorship, contributors, source release, installation, and
+  generic layout workflow.
+
+### Dependencies and risks
+
+- Aya is a user-generated default-modern hybrid and inherits `SIDL.xml` from
+  the game's read-only `default` skin.
+- The upstream ZIP marks files executable and includes a generic top-level
+  layout; repository modes must be normalized and only that exact layout may be
+  allowlisted.
+- The two bundles must retain independent inventories so an Aya update cannot
+  silently change Plazmic assets or vice versa.
+
+### Exit criteria
+
+- AC-16 passes and both archives exactly match their reviewed source trees.
+- Synthetic tests cover valid choices, rejected skin names, remembered choice,
+  target routing, rollback, and exact reload instructions.
+- Real local capture succeeds for both installed skins without publishing or
+  changing either installed game skin.
+- The complete gate and independent review pass on the final public-safe diff.
+
+### Validation
+
+- Compare Aya's tracked skin byte-for-byte with the reviewed upstream archive,
+  excluding only archive modes and separately verifying the generic layout.
+- Run both bundle verifiers, generic and Plazmic XML checks, privacy scans,
+  archive inventory comparison, focused selector tests, and `make check`.
+- Record in-game `/loadskin` validation separately.
+
+### Rollback
+
+Remove the Aya bundle/archive and selector mapping, then default existing
+configuration to Plazmic UI. Existing workspace and installed-skin backups
+remain compatible.

@@ -9,3 +9,7 @@
 # Preserve the reviewed game bundle byte-for-byte, including generic INI data.
 ui-bundle/plazmic-ui/** -text
 ui-bundle/plazmic-ui/**/*.ini diff whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol
+ui-bundle/aya-legends/** -text
+ui-bundle/aya-legends/*.ini diff whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab,cr-at-eol
+ui-bundle/aya-legends/**/*.ini diff whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab,cr-at-eol
+ui-bundle/aya-legends/**/*.xml diff whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab,cr-at-eol

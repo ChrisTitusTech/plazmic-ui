@@ -13,6 +13,13 @@ export EQ_LEGENDS_DIR='/path/to/EverQuest Legends'
 Delete ignored `.plazmic-ui-workspace/studio.json` if a previously saved local
 path is no longer valid.
 
+## Aya capture says the skin is not installed
+
+`--skin aya` requires a complete `uifiles/AYA_Legends` installation. Extract
+the Aya release package into the game directory, confirm its `EQUI.xml` is
+present, and capture again. Aya never falls back to `default_modern`; use
+`--skin plazmic-ui` when that fallback is intended.
+
 ## Multiple layouts are found
 
 Interactive commands show a numbered list. Non-interactive commands fail
@@ -66,7 +73,8 @@ Stop the Studio before restoring workspace files.
   `.plazmic-ui-workspace/skin.backup-*` paths.
 - Local INI/XML edits are under
   `.plazmic-ui-workspace/backups/<filename>/`.
-- Installed skins use sibling `uifiles/plazmic-ui.backup-*` paths.
+- Installed skins use sibling `uifiles/plazmic-ui.backup-*` or
+  `uifiles/AYA_Legends.backup-*` paths.
 - Published layouts use sibling `UI_name.ini.backup-*` files.
 
 Move the current target aside, move the chosen backup back to its original

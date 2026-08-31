@@ -1,20 +1,20 @@
 # Third-party notices
 
-## EverQuest UI assets
+## User-created EverQuest UI packages
 
-The files under `ui-bundle/plazmic-ui/` include EverQuest user-interface XML,
-textures, cursors, and generic skin configuration derived from the game's
-`default_modern` interface. EverQuest and these assets are the property of
-Daybreak Game Company or their respective owners.
+The files under `ui-bundle/plazmic-ui/` are the Plazmic UI package. The files
+under `ui-bundle/aya-legends/` are the Aya Legends 1.0 package by Finamdar, a
+Legends port and hybrid of the classic Aya UI by Kanon. Aya's upstream release
+and contributor credits are available from the
+[AYA Legends download page](https://www.eqinterface.com/downloads/fileinfo.php?id=7003).
 
-These assets are provided as a separate ready-to-install UI bundle for use with
-EverQuest. They are not licensed under the repository's GPL-3.0-only license,
-and no ownership, affiliation, endorsement, or additional trademark rights are
-claimed. Before publishing any bundle containing these assets, the distributor
-must obtain express written redistribution authorization from Daybreak Game
-Company covering the exact files and distribution channel. The EverQuest EULA
-and this notice do not themselves grant redistribution permission.
+These user-created packages are distributed as separate ready-to-install UI
+bundles for use with EverQuest. They are not licensed under the repository's
+GPL-3.0-only source license, and no ownership, affiliation, endorsement, or
+additional trademark rights are claimed. EverQuest and original game assets
+remain the property of Daybreak Game Company or their respective owners.
 
-The bundle intentionally excludes character `UI_*.ini` layouts, account data,
+The bundles intentionally exclude personal character layouts, account data,
 character names, personal paths, game executables, backups, checksum sidecars,
-and credentials.
+and credentials. Aya's exact upstream `UI_Character_Server_LO1.ini` is retained
+as a generic layout template and is the only approved `UI_*.ini` exception.

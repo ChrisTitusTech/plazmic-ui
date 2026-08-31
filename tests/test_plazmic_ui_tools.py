@@ -13,6 +13,7 @@ import threading
 import unittest
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -113,13 +114,13 @@ class BundleTests(unittest.TestCase):
         return bytes(header) + payload
 
     @staticmethod
-    def write_manifest(bundle: Path) -> Path:
+    def write_manifest(bundle: Path, name: str = "SHA256SUMS") -> Path:
         entries = []
         for path in sorted(item for item in bundle.rglob("*") if item.is_file()):
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             relative = path.relative_to(bundle.parent).as_posix()
             entries.append(f"{digest}  {relative}\n")
-        manifest = bundle.parent / "SHA256SUMS"
+        manifest = bundle.parent / name
         manifest.write_text("".join(entries), encoding="ascii")
         return manifest
 
@@ -146,6 +147,29 @@ class BundleTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "character"):
                 verify_ui_bundle.verify_bundle(bundle)
+
+    def test_aya_verifier_accepts_only_the_reviewed_generic_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "aya-legends"
+            skin = bundle / "uifiles" / "AYA_Legends"
+            skin.mkdir(parents=True)
+            (skin / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            (bundle / verify_ui_bundle.AYA_LAYOUT_NAME).write_text(
+                "[Generic]\n",
+                encoding="ascii",
+            )
+            manifest = self.write_manifest(bundle, verify_ui_bundle.AYA_MANIFEST_NAME)
+
+            self.assertEqual(
+                verify_ui_bundle.verify_bundle(bundle, manifest, "aya-legends"),
+                2,
+            )
+
+            unapproved = bundle / "UI_personal_server.ini"
+            unapproved.write_text("[Personal]\n", encoding="ascii")
+            self.write_manifest(bundle, verify_ui_bundle.AYA_MANIFEST_NAME)
+            with self.assertRaisesRegex(ValueError, "unapproved character"):
+                verify_ui_bundle.verify_bundle(bundle, manifest, "aya-legends")
 
     def test_verifier_rejects_inventory_change(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -336,6 +360,21 @@ class BundleTests(unittest.TestCase):
 
             self.assertEqual(verify_ui_bundle.verify_archive(archive, bundle), 1)
 
+    def test_aya_archive_verifier_preserves_game_root_structure(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            bundle = root / "aya-legends"
+            skin = bundle / "uifiles" / "AYA_Legends"
+            skin.mkdir(parents=True)
+            (skin / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            (bundle / verify_ui_bundle.AYA_LAYOUT_NAME).write_text("[Generic]\n", encoding="ascii")
+            archive = Path(shutil.make_archive(str(root / "aya"), "zip", bundle, "."))
+
+            self.assertEqual(
+                verify_ui_bundle.verify_archive(archive, bundle, "aya-legends"),
+                2,
+            )
+
     def test_archive_verifier_rejects_changed_content(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -387,6 +426,25 @@ class LintTests(unittest.TestCase):
 
             self.assertEqual(findings, [])
             self.assertEqual(count, 2)
+
+    def test_generic_linter_allows_inherited_sidl_without_plazmic_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            ui_dir = Path(temp_dir)
+            (ui_dir / "EQUI.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Composite>'
+                "<Include>SIDL.xml</Include></Composite></XML>\n",
+                encoding="us-ascii",
+            )
+
+            findings, count = lint_ui.lint_directory(
+                ui_dir,
+                check_format=False,
+                profile="generic",
+                inherited_includes=frozenset({"sidl.xml"}),
+            )
+
+            self.assertEqual(findings, [])
+            self.assertEqual(count, 1)
 
     def test_linter_rejects_missing_include(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -509,6 +567,38 @@ class ReleaseToolTests(unittest.TestCase):
 
 
 class UiStudioTests(unittest.TestCase):
+    def test_resolve_paths_infers_legacy_aya_and_rejects_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            workspace = repo / ui_studio.WORKSPACE_DIRECTORY
+            skin = workspace / "skin"
+            layouts = workspace / "layouts"
+            game = root / "game"
+            skin.mkdir(parents=True)
+            layouts.mkdir()
+            game.mkdir()
+            (game / "eqgame.exe").write_bytes(b"client")
+            layout = layouts / "UI_example.ini"
+            layout.write_bytes(b"[Main]\n")
+            (skin / ".plazmic-upstream").write_text(
+                "source=AYA_Legends\ncaptured_at=2026-08-31T00:00:00+00:00\n",
+                encoding="ascii",
+            )
+            args = SimpleNamespace(
+                game_dir=str(game),
+                layout=layout.name,
+                resolution=None,
+                skin=None,
+            )
+
+            paths = ui_studio.resolve_paths(args, repo)
+            self.assertEqual(paths.skin_id, "aya")
+
+            args.skin = "plazmic-ui"
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                ui_studio.resolve_paths(args, repo)
+
     def test_windows_reparse_points_are_treated_as_links(self) -> None:
         candidate = mock.Mock(spec=Path)
         candidate.is_symlink.return_value = False
@@ -736,6 +826,60 @@ class UiStudioTests(unittest.TestCase):
             self.assertTrue(layout_backup.is_file())
             self.assertNotIn(str(root), " ".join(result.values()))
             shutil.rmtree(skin_backup)
+
+    def test_aya_capture_and_publish_route_to_aya_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            game = root / "game"
+            installed_skin = game / "uifiles" / "AYA_Legends"
+            installed_skin.mkdir(parents=True)
+            repo.mkdir()
+            (game / "eqgame.exe").write_bytes(b"client")
+            (installed_skin / "EQUI.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Composite>'
+                "<Include>EQUI_Window.xml</Include></Composite></XML>\n",
+                encoding="ascii",
+            )
+            (installed_skin / "EQUI_Window.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage" />\n', encoding="ascii"
+            )
+            (installed_skin / "texture.tga").write_bytes(b"aya")
+            source_layout = game / "UI_example.ini"
+            source_layout.write_bytes(b"[PlayerWindow]\nAlpha=255\n")
+
+            skin, layout = ui_studio.capture_workspace(
+                repo,
+                game,
+                source_layout,
+                skin_id="aya",
+            )
+            config = json.loads(
+                (repo / ui_studio.WORKSPACE_DIRECTORY / "studio.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(config["active_skin"], "aya")
+            self.assertIn("skin=aya", (skin / ".plazmic-upstream").read_text(encoding="ascii"))
+
+            (skin / "texture.tga").write_bytes(b"edited aya")
+            paths = ui_studio.StudioPaths(
+                repo=repo,
+                skin=skin,
+                layouts=layout.parent,
+                backups=repo / "backups",
+                config=repo / "studio.json",
+                game=game,
+                layout=layout,
+                skin_id="aya",
+            )
+            state = ui_studio.layout_state(paths)
+            self.assertEqual(state["skin"], "aya")
+            self.assertEqual(state["skinName"], "Aya Legends")
+            result = ui_studio.publish_workspace(paths, source_layout.name)
+
+            self.assertEqual(result["skin"], "AYA_Legends")
+            self.assertIn("/loadskin AYA_Legends 1", result["instructions"])
+            self.assertEqual((installed_skin / "texture.tga").read_bytes(), b"edited aya")
+            self.assertFalse((game / "uifiles" / "plazmic-ui").exists())
 
     def test_capture_materializes_missing_manifest_xml_from_default(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1270,6 +1414,84 @@ class CliTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 1)
             self.assertIn("contains a symlink", result.stderr)
+
+    @unittest.skipIf(os.name == "nt", "POSIX install script is Linux-only")
+    def test_install_dry_run_routes_aya_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            game = root / "game"
+            source = root / "source"
+            (game / "uifiles" / "default_modern").mkdir(parents=True)
+            source.mkdir()
+            (game / "eqgame.exe").write_bytes(b"client")
+            (source / "EQUI.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Composite>'
+                "<Include>SIDL.xml</Include></Composite></XML>\n",
+                encoding="ascii",
+            )
+            (source / ".plazmic-upstream").write_text(
+                "skin=aya\nsource=AYA_Legends\n",
+                encoding="ascii",
+            )
+
+            result = subprocess.run(
+                [
+                    ROOT / "ui-tools" / "install-ui.sh",
+                    "--game-dir",
+                    game,
+                    "--source",
+                    source,
+                    "--skin",
+                    "aya",
+                    "--dry-run",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Dry run complete", result.stdout)
+
+    @unittest.skipIf(os.name == "nt", "POSIX install script is Linux-only")
+    def test_install_dry_run_uses_generic_profile_for_captured_plazmic(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            game = root / "game"
+            source = root / "source"
+            (game / "uifiles" / "default_modern").mkdir(parents=True)
+            source.mkdir()
+            (game / "eqgame.exe").write_bytes(b"client")
+            (source / "EQUI.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Composite>'
+                "<Include>SIDL.xml</Include></Composite></XML>\n",
+                encoding="ascii",
+            )
+            (source / ".plazmic-upstream").write_text(
+                "source=default_modern\ncaptured_at=2026-08-31T00:00:00+00:00\n",
+                encoding="ascii",
+            )
+
+            result = subprocess.run(
+                [
+                    ROOT / "ui-tools" / "install-ui.sh",
+                    "--game-dir",
+                    game,
+                    "--source",
+                    source,
+                    "--skin",
+                    "plazmic-ui",
+                    "--dry-run",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Dry run complete", result.stdout)
 
 
 if __name__ == "__main__":

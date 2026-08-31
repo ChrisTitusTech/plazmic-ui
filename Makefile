@@ -34,12 +34,12 @@ MARKDOWN_FILES := \
 	docs/*.md \
 	docs/releases/*.md
 
-.PHONY: help sync refresh capture studio format lint install-dry-run install publish studio-binary bundle-check bundle-archive test jscheck shellcheck shfmt ruff pycompile markdownlint hygiene check
+.PHONY: help sync refresh capture studio format lint install-dry-run install publish studio-binary plazmic-bundle-check aya-bundle-check bundle-check bundle-archive test jscheck shellcheck shfmt ruff pycompile markdownlint hygiene check
 
 help:
 	@printf '%s\n' \
 		'Plazmic UI targets:' \
-		'  capture          Capture an installed skin and layout' \
+		'  capture          Capture Plazmic UI or Aya and a layout' \
 		'  studio           Open the local browser Studio' \
 		'  publish          Publish workspace changes with backups' \
 		'  sync             Derive a fresh skin from default_modern' \
@@ -47,8 +47,8 @@ help:
 		'  install-dry-run  Validate the offline install target' \
 		'  install          Install while EverQuest is stopped' \
 		'  studio-binary    Build and verify the local Linux Studio binary' \
-		'  bundle-check     Validate the distributable EverQuest UI bundle' \
-		'  bundle-archive   Build the distributable UI bundle ZIP' \
+		'  bundle-check     Validate both distributable EverQuest UI bundles' \
+		'  bundle-archive   Build both distributable UI bundle ZIPs' \
 		'  check            Run the complete contributor gate'
 
 sync:
@@ -85,16 +85,30 @@ studio-binary:
 		--version "$$(python3 tools/release_version.py)" \
 		dist/plazmic-ui-studio
 
-bundle-check:
+plazmic-bundle-check:
 	python3 tools/verify_ui_bundle.py ui-bundle/plazmic-ui
 	python3 ui-tools/lint-ui.py --check-format ui-bundle/plazmic-ui
+
+aya-bundle-check:
+	python3 tools/verify_ui_bundle.py --kind aya-legends ui-bundle/aya-legends
+	python3 ui-tools/lint-ui.py \
+		--profile generic \
+		--inherited-include SIDL.xml \
+		ui-bundle/aya-legends/uifiles/AYA_Legends
+
+bundle-check: plazmic-bundle-check aya-bundle-check
 
 bundle-archive: bundle-check
 	mkdir -p release-assets
 	python3 -c "import shutil; shutil.make_archive('release-assets/plazmic-ui-bundle', 'zip', 'ui-bundle', 'plazmic-ui')"
+	python3 -c "import shutil; shutil.make_archive('release-assets/aya-legends-bundle', 'zip', 'ui-bundle/aya-legends', '.')"
 	python3 tools/verify_ui_bundle.py \
 		--archive release-assets/plazmic-ui-bundle.zip \
 		ui-bundle/plazmic-ui
+	python3 tools/verify_ui_bundle.py \
+		--kind aya-legends \
+		--archive release-assets/aya-legends-bundle.zip \
+		ui-bundle/aya-legends
 
 test:
 	python3 -m unittest discover -s tests -p 'test_*.py' -v

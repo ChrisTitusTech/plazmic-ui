@@ -5,6 +5,34 @@ skipped live checks and residual risk rather than marking them complete.
 
 ## Current phase
 
+### B-02: Add Aya distribution and multi-skin selection
+
+- [x] Track the reviewed Aya skin and exact generic layout with an independent
+  checksum inventory.
+- [x] Add separate verified Plazmic and Aya release archives.
+- [x] Add allowlisted, remembered Plazmic/Aya selection across capture, Studio,
+  install, publish, and reload instructions.
+- [x] Add bundle-specific XML, privacy, mode, layout, and archive validation.
+- [x] Update attribution, installation, development, security, and rollback
+  documentation.
+- [x] Pass real local capture for both skins, the complete source gate, and the
+  final diff/privacy review.
+- Acceptance criteria: AC-16 and the Phase 10 exit criteria.
+- Automated validation: selector and target-routing tests, both bundle
+  verifiers, generic/Plazmic XML checks, exact archive comparison, repository
+  hygiene, privacy scan, Markdownlint, Python checks, and `make check`.
+- Manual validation: capture both installed skins without game writes; live
+  `/loadskin plazmic-ui 1` and `/loadskin AYA_Legends 1` remain separate.
+
+B-02 added 1,681 normalized Aya package files plus an independent checksum
+inventory and verified archive. Real Aya capture and offline-install dry-run
+passed against the installed tree; the existing real Plazmic capture also
+passed its selected structural profile. The complete gate passed with 62
+Python tests, 12 frontend tests, both bundle/archive inventories, 258 Plazmic
+XML files, 268 Aya XML files, and repository/privacy checks. Live `/loadskin`
+was skipped to avoid changing game state; in-game rendering remains the
+residual risk.
+
 ### B-01: Distribute the complete Plazmic UI skin
 
 - [x] Track the reviewed skin as `ui-bundle/plazmic-ui/`.
@@ -145,7 +173,7 @@ release ZIP. The complete gate passed with 52 Python tests, 12 frontend tests,
 258 XML files, repository/privacy checks, exact archive comparison, and
 independent review. Live bundle loading was skipped to avoid changing game
 state; in-game rendering remains the residual risk. Release upload additionally
-requires the repository's authorized-manifest digest to match the exact bundle.
+rebuilds and verifies the exact reviewed bundle from its manifest.
 All CodeRabbit findings from three completed review passes were addressed. A
 final confirmation pass was rate-limited, so the exact reviewed diff received
 the same local static, test, secret, whitespace, and clean-clone gates before
