@@ -31,9 +31,10 @@ the project's GPL-3.0-only license. See `THIRD_PARTY_NOTICES.md`.
 
 ## Local user inputs
 
-At runtime, users may direct the tools to files from their own EverQuest
-Legends installation:
+At runtime, tool inputs from the user's own EverQuest Legends installation may
+include:
 
+- top-level manifest XML inherited from `uifiles/default` during capture;
 - `uifiles/default_modern`;
 - an installed `uifiles/plazmic-ui`; and
 - top-level `UI_*.ini` layouts.

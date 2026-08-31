@@ -61,6 +61,7 @@ No fixture comes from EverQuest. Coverage includes:
 - anchor and resolution conversion;
 - surgical INI replacement and backups;
 - capture filters and symlink rejection;
+- capture materialization of missing manifest XML from the default skin;
 - XML/settings validation;
 - transactional publish rollback;
 - Host, token, Origin, and body-size server checks;

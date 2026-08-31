@@ -83,7 +83,9 @@ start from the shipped modern UI:
 
 The command copies the installed `plazmic-ui` skin when present; otherwise it
 copies `default_modern`. It excludes `.crc`, Wine `:crc`, `.bak`, and Plazmic
-metadata sidecars. It then copies one selected top-level `UI_*.ini`.
+metadata sidecars. When that skin inherits a manifest XML file from `default`,
+capture copies only the missing top-level XML into the private workspace before
+validating it. It then copies one selected top-level `UI_*.ini`.
 
 When multiple layouts exist, choose interactively or pass a filename:
 

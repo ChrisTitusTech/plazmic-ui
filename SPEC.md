@@ -33,6 +33,8 @@ game process, or a patched skin whose XML differs from the reviewed baseline.
 - `capture` copies one explicitly selected current top-level `UI_*.ini` into
   the ignored layout workspace and captures the installed `plazmic-ui` skin,
   falling back to `default_modern` only when no installed Plazmic skin exists.
+  Missing manifest XML inherited by that skin is materialized only from the
+  read-only `default` skin before the completed capture is validated.
 - Existing local workspaces are preserved as timestamped backups before a
   refresh or replacement.
 

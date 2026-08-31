@@ -737,6 +737,97 @@ class UiStudioTests(unittest.TestCase):
             self.assertNotIn(str(root), " ".join(result.values()))
             shutil.rmtree(skin_backup)
 
+    def test_capture_materializes_missing_manifest_xml_from_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            game = root / "game"
+            modern_skin = game / "uifiles" / "default_modern"
+            default_skin = game / "uifiles" / "default"
+            modern_skin.mkdir(parents=True)
+            default_skin.mkdir()
+            repo.mkdir()
+            (game / "eqgame.exe").write_bytes(b"client")
+            (modern_skin / "EQUI.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Composite>'
+                "<Include>SIDL.xml</Include>"
+                "<Include>EQUI_Window.xml</Include>"
+                "</Composite></XML>\n",
+                encoding="ascii",
+            )
+            (modern_skin / "EQUI_Window.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage" />\n', encoding="ascii"
+            )
+            (default_skin / "SIDL.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage" />\n', encoding="ascii"
+            )
+            (default_skin / "unrelated.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage" />\n', encoding="ascii"
+            )
+            source_layout = game / "UI_example.ini"
+            source_layout.write_bytes(b"[PlayerWindow]\r\nAlpha=255\r\n")
+
+            skin, _layout = ui_studio.capture_workspace(repo, game, source_layout)
+
+            self.assertEqual(
+                (skin / "SIDL.xml").read_bytes(), (default_skin / "SIDL.xml").read_bytes()
+            )
+            self.assertFalse((skin / "unrelated.xml").exists())
+            ui_studio.validate_skin_manifest(skin)
+
+    def test_capture_rejects_symlinked_required_default_fallback(self) -> None:
+        if os.name == "nt":
+            self.skipTest("symlink creation is not reliably available on Windows")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            game = root / "game"
+            modern_skin = game / "uifiles" / "default_modern"
+            default_skin = game / "uifiles" / "default"
+            modern_skin.mkdir(parents=True)
+            default_skin.mkdir()
+            repo.mkdir()
+            (game / "eqgame.exe").write_bytes(b"client")
+            (modern_skin / "EQUI.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Composite>'
+                "<Include>SIDL.xml</Include>"
+                "</Composite></XML>\n",
+                encoding="ascii",
+            )
+            outside = root / "SIDL.xml"
+            outside.write_text('<XML ID="EQInterfaceDefinitionLanguage" />\n', encoding="ascii")
+            (default_skin / "SIDL.xml").symlink_to(outside)
+            layout = game / "UI_example.ini"
+            layout.write_bytes(b"[PlayerWindow]\r\nAlpha=255\r\n")
+
+            with self.assertRaisesRegex(ValueError, "fallback is unsafe"):
+                ui_studio.capture_workspace(repo, game, layout)
+
+    def test_capture_rejects_malformed_required_default_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            game = root / "game"
+            modern_skin = game / "uifiles" / "default_modern"
+            default_skin = game / "uifiles" / "default"
+            modern_skin.mkdir(parents=True)
+            default_skin.mkdir()
+            repo.mkdir()
+            (game / "eqgame.exe").write_bytes(b"client")
+            (modern_skin / "EQUI.xml").write_text(
+                '<XML ID="EQInterfaceDefinitionLanguage"><Composite>'
+                "<Include>SIDL.xml</Include>"
+                "</Composite></XML>\n",
+                encoding="ascii",
+            )
+            (default_skin / "SIDL.xml").write_text("<XML", encoding="ascii")
+            layout = game / "UI_example.ini"
+            layout.write_bytes(b"[PlayerWindow]\r\nAlpha=255\r\n")
+
+            with self.assertRaisesRegex(ValueError, "fallback XML is invalid"):
+                ui_studio.capture_workspace(repo, game, layout)
+            self.assertFalse((repo / ui_studio.WORKSPACE_DIRECTORY / "skin").exists())
+
     def test_publish_rejects_window_xml_as_manifest_before_game_write(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

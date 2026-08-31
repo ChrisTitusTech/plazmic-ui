@@ -28,8 +28,9 @@ private data under the user's local application-data directory.
 
 ```text
 EverQuest Legends installation
-  |-- uifiles/default_modern ---- sync/capture ----+
-  |-- uifiles/plazmic-ui -------- capture ----------+--> .plazmic-ui-workspace/skin
+  |-- uifiles/default -------- manifest XML fallback --+
+  |-- uifiles/default_modern ---- sync/capture --------+--> .plazmic-ui-workspace/skin
+  |-- uifiles/plazmic-ui -------- capture --------------+
   |-- UI_*.ini ------------------ capture --------------> .plazmic-ui-workspace/layouts
   |                                                       |
   |                                             loopback Studio edits
@@ -109,6 +110,10 @@ the materialized skin root. Symlinks and files above 10 MiB are rejected.
 `EQUI.xml` is excluded from the Studio editor because it is the skin manifest,
 not a window definition. Capture, lint, install, and publish require it to have
 one top-level `Composite` containing `Include` entries before any skin copy.
+During capture, top-level manifest XML absent from the selected skin is copied
+individually from the read-only `default` skin, matching the installed skin's
+fallback without importing unrelated files. The completed staged skin must
+then satisfy the same manifest validation as install and publish.
 
 ## Server boundary
 

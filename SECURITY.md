@@ -27,7 +27,9 @@ forward, or non-loopback bind.
 
 File operations are deliberately narrow:
 
-- reads come from the selected local skin and layout workspaces;
+- game reads come from the selected skin and layout, plus only missing
+  top-level manifest XML inherited from the `default` skin during capture;
+- Studio reads come from the selected local skin and layout workspaces;
 - XML access is limited to top-level regular `.xml` files;
 - game writes target only `uifiles/plazmic-ui` and one selected existing
   top-level `UI_*.ini`;

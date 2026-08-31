@@ -544,7 +544,7 @@ def validate_xml(contents: str, *, filename: str | None = None) -> bytes:
     return encoded
 
 
-def validate_skin_manifest(skin: Path) -> None:
+def skin_manifest_includes(skin: Path) -> list[str]:
     path = skin / "EQUI.xml"
     if is_link_like(path) or not path.is_file() or path.resolve().parent != skin.resolve():
         raise ValueError("workspace skin must contain a physical top-level EQUI.xml manifest")
@@ -556,12 +556,11 @@ def validate_skin_manifest(skin: Path) -> None:
         raise ValueError("EQUI.xml must be readable US-ASCII") from error
     encoded = validate_xml(contents, filename=path.name)
     root = ET.fromstring(encoded)
-    includes = equi_manifest_includes(root)
-    available = {
-        candidate.name.casefold()
-        for candidate in skin.glob("*.xml")
-        if candidate.is_file() and not is_link_like(candidate)
-    }
+    return equi_manifest_includes(root)
+
+
+def validated_manifest_includes(includes: list[str]) -> list[tuple[str, str]]:
+    validated: list[tuple[str, str]] = []
     seen: set[str] = set()
     for include in includes:
         folded = include.casefold()
@@ -569,9 +568,70 @@ def validate_skin_manifest(skin: Path) -> None:
             raise ValueError(f"EQUI.xml contains an unsafe Include: {include!r}")
         if folded in seen:
             raise ValueError(f"EQUI.xml contains a duplicate Include: {include}")
+        validated.append((include, folded))
+        seen.add(folded)
+    return validated
+
+
+def validate_skin_manifest(skin: Path) -> None:
+    includes = validated_manifest_includes(skin_manifest_includes(skin))
+    available = {
+        candidate.name.casefold()
+        for candidate in skin.glob("*.xml")
+        if candidate.is_file() and not is_link_like(candidate)
+    }
+    for include, folded in includes:
         if folded not in available:
             raise ValueError(f"EQUI.xml includes a missing XML file: {include}")
-        seen.add(folded)
+
+
+def materialize_manifest_fallback(skin: Path, fallback: Path) -> None:
+    includes = validated_manifest_includes(skin_manifest_includes(skin))
+    available = {
+        candidate.name.casefold()
+        for candidate in skin.glob("*.xml")
+        if candidate.is_file() and not is_link_like(candidate)
+    }
+    missing = [(include, folded) for include, folded in includes if folded not in available]
+    if not missing:
+        validate_skin_manifest(skin)
+        return
+    if is_link_like(fallback):
+        raise ValueError("default skin fallback must not be a symlink")
+    if fallback.is_dir():
+        fallback_xml = sorted(fallback.glob("*.xml"))
+        for include, folded in missing:
+            matches = [
+                candidate for candidate in fallback_xml if candidate.name.casefold() == folded
+            ]
+            if len(matches) > 1:
+                raise ValueError(f"default skin fallback is ambiguous for: {include}")
+            if not matches:
+                continue
+            candidate = matches[0]
+            if (
+                is_link_like(candidate)
+                or not candidate.is_file()
+                or candidate.resolve().parent != fallback.resolve()
+            ):
+                raise ValueError(f"default skin fallback is unsafe for: {include}")
+            destination = skin / candidate.name
+            shutil.copy2(candidate, destination, follow_symlinks=False)
+            if destination.stat().st_size > MAX_REQUEST_BYTES:
+                raise ValueError(f"default skin fallback XML exceeds size limit: {include}")
+            try:
+                contents = destination.read_text(encoding="us-ascii")
+            except (OSError, UnicodeError) as error:
+                raise ValueError(
+                    f"default skin fallback XML is not readable US-ASCII: {include}"
+                ) from error
+            try:
+                validate_xml(contents)
+            except ValueError as error:
+                raise ValueError(
+                    f"default skin fallback XML is invalid: {include}: {error}"
+                ) from error
+    validate_skin_manifest(skin)
 
 
 def game_layouts(game: Path) -> list[Path]:
@@ -722,7 +782,7 @@ def capture_workspace(
     symlink = first_symlink(source_skin)
     if symlink is not None:
         raise ValueError("source skin contains a symlink")
-    validate_skin_manifest(source_skin)
+    validated_manifest_includes(skin_manifest_includes(source_skin))
     workspace = local_workspace(repo, create=True)
     skin_destination = workspace / "skin"
     staging = Path(tempfile.mkdtemp(prefix=".capture.", dir=workspace))
@@ -734,6 +794,7 @@ def capture_workspace(
             ignore=ignored_game_sidecar,
             dirs_exist_ok=True,
         )
+        materialize_manifest_fallback(staging, game / "uifiles" / "default")
         (staging / ".plazmic-upstream").write_text(
             f"source={source_skin.name}\ncaptured_at={datetime.now().astimezone().isoformat()}\n",
             encoding="ascii",
