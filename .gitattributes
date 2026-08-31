@@ -4,3 +4,8 @@
 *.webp binary
 *.tga binary
 *.dds binary
+*.cur binary
+
+# Preserve the reviewed game bundle byte-for-byte, including generic INI data.
+ui-bundle/plazmic-ui/** -text
+ui-bundle/plazmic-ui/**/*.ini diff whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol

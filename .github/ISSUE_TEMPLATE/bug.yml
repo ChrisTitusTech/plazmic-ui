@@ -8,9 +8,10 @@ body:
   - type: markdown
     attributes:
       value: >-
-        Do not put private UI assets, personal UI_*.ini contents, game paths,
-        account data, character names, logs, crash dumps, or credentials in
-        this issue, its comments, or attachments.
+        Do not put private or locally modified UI assets, personal UI_*.ini
+        contents, game paths, account data, character names, logs, crash dumps,
+        or credentials in this issue, its comments, or attachments. Refer to an
+        existing tracked bundle file by repository path.
   - type: input
     id: version
     attributes:
@@ -50,7 +51,7 @@ body:
       label: Privacy confirmation
       options:
         - label: >-
-            I removed private UI assets, personal UI INIs, game paths, account
-            data, character names, logs, crash dumps, and credentials from the
-            issue, comments, and attachments.
+            I removed private or locally modified UI assets, personal UI INIs,
+            game paths, account data, character names, logs, crash dumps, and
+            credentials from the issue, comments, and attachments.
           required: true

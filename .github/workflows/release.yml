@@ -1,5 +1,5 @@
 ---
-name: Release Studio binaries
+name: Release Studio and UI bundle
 
 'on':
   workflow_dispatch:
@@ -62,6 +62,7 @@ jobs:
           python -m py_compile
           tests/test_plazmic_ui_tools.py
           tools/release_version.py
+          tools/verify_ui_bundle.py
           tools/verify_release_binary.py
           ui-tools/ui_studio.py
 
@@ -124,9 +125,18 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Python
+        # v7.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.11"
+
       - name: Validate release version
         id: version
         run: python tools/release_version.py --check-tag --github-output
+
+      - name: Build verified UI bundle
+        run: make bundle-archive
 
       - name: Download verified executables
         # v8.0.1
@@ -136,16 +146,25 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: Generate checksums and publish release
+      - name: Publish release
         env:
+          UI_BUNDLE_AUTHORIZED_MANIFEST_SHA256: >-
+            ${{ vars.UI_BUNDLE_AUTHORIZED_MANIFEST_SHA256 }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          authorized_manifest="$UI_BUNDLE_AUTHORIZED_MANIFEST_SHA256"
+          current_manifest="$(sha256sum ui-bundle/SHA256SUMS | cut -d ' ' -f 1)"
           cd release-assets
-          sha256sum plazmic-ui-studio-* > SHA256SUMS
+          set -- plazmic-ui-studio-*
+          if [ -n "$authorized_manifest" ] && \
+             [ "$authorized_manifest" = "$current_manifest" ]; then
+            set -- "$@" plazmic-ui-bundle.zip
+          fi
+          sha256sum "$@" > SHA256SUMS
           gh release create "$GITHUB_REF_NAME" \
-            plazmic-ui-studio-* SHA256SUMS \
+            "$@" SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
-            --title "Plazmic UI Studio $GITHUB_REF_NAME" \
+            --title "Plazmic UI $GITHUB_REF_NAME" \
             --notes-file \
               "../docs/releases/v${{ steps.version.outputs.version }}.md"

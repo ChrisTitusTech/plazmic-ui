@@ -4,12 +4,12 @@
 
 EverQuest Legends stores window placement in top-level `UI_*.ini` files and
 loads skins from `uifiles/`, but iterating on those files inside the game is
-slow and error-prone. Public repositories also cannot lawfully or safely use a
-player's installed game assets and personal layouts as source material.
+slow and error-prone. A useful public distribution needs both a ready-to-install
+skin and tooling that keeps personal layouts and installation data private.
 
-Plazmic UI provides a public, reproducible toolkit while keeping every copied
-asset and user file local. It offers a browser-based layout Studio, validated
-XML editing, and narrow install/publish operations with rollback backups.
+Plazmic UI provides a reviewed UI asset bundle plus a reproducible toolkit. It
+offers a browser-based layout Studio, validated XML editing, and narrow
+install/publish operations with rollback backups while keeping user files local.
 
 ## Users
 
@@ -92,6 +92,24 @@ game process, or a patched skin whose XML differs from the reviewed baseline.
   state.
 - Success output provides the exact `/loadskin plazmic-ui 1` follow-up.
 
+### Distributable UI bundle
+
+- Track the ready-to-install skin only under `ui-bundle/plazmic-ui/` and package
+  it as a separate `plazmic-ui-bundle.zip` release asset.
+- The archive root is `plazmic-ui/`, ready to place under the game's `uifiles/`
+  directory while the game is stopped.
+- Include the reviewed XML, texture, cursor, and generic skin INI files required
+  by the skin. Keep the Studio executables separate from the asset archive.
+- Exclude every character `UI_*.ini`, backup, checksum sidecar, executable,
+  symlink, local provenance timestamp, account value, character name, personal
+  path, and credential.
+- Treat bundled game assets as third-party content outside the GPL grant and
+  retain the ownership and non-endorsement notice.
+- Publish the bundle only after obtaining express written redistribution
+  authorization from Daybreak Game Company covering the exact files and
+  distribution channel. The EULA, ownership notice, and non-endorsement notice
+  do not grant that permission.
+
 ### Validation and errors
 
 - Reject missing dependencies, invalid game roots, absent `EQUI.xml`, unknown
@@ -136,8 +154,10 @@ renders the editor; it has no build step and no external network dependency.
 ## Security and privacy
 
 - No telemetry, analytics, updater, remote listener, account, or cloud service.
-- No Daybreak asset, executable, layout, path, or user backup is tracked,
-  packaged, uploaded, or sent to review services.
+- Reviewed game UI assets are tracked only in `ui-bundle/plazmic-ui/` and
+  packaged only in the separate UI bundle. No executable, character layout,
+  personal path, account data, character identifier, user backup, or credential
+  is included.
 - The loopback API uses a random token and no-store responses. State-changing
   requests require the token and an allowed loopback Origin when present.
 - Filenames are restricted to top-level expected forms; resolved targets must
@@ -162,7 +182,6 @@ renders the editor; it has no build step and no external network dependency.
 
 ## Non-goals
 
-- Distributing a complete EverQuest skin or any Daybreak asset.
 - Reimplementing the full SIDL renderer or showing proprietary textures.
 - Supporting macOS or non-x86-64 packaged hosts in the initial release.
 - Editing game binaries, DLLs, registry state, memory, or gameplay state.
@@ -172,8 +191,9 @@ renders the editor; it has no build step and no external network dependency.
 
 ## Acceptance criteria
 
-- AC-01: A clean clone contains only original source, synthetic fixtures,
-  documentation, and CI metadata; asset/private-data audits are clean.
+- AC-01: A clean clone contains original source, synthetic fixtures,
+  documentation, CI metadata, and the reviewed UI bundle; privacy and asset
+  boundary audits are clean.
 - AC-02: Capture, sync, format, lint, install dry-run, and CLI failure paths are
   covered by deterministic tests or safe local validation.
 - AC-03: The Studio renders the captured layout, supports the documented
@@ -192,9 +212,9 @@ renders the editor; it has no build step and no external network dependency.
   ignored local data, and the live `/loadskin` result is reported separately.
 - AC-10: Independent review has no unresolved critical or warning findings,
   the exact reviewed commit is pushed to public `main`, and remote CI passes.
-- AC-11: The first release provides verified Linux ELF and Windows PE x86-64
-  Studio executables, matching version output, embedded frontend files,
-  SHA-256 checksums, and no game or personal assets.
+- AC-11: Releases provide verified Linux ELF and Windows PE x86-64 Studio
+  executables with matching version output and embedded frontend files. Studio
+  executables contain no game or personal assets.
 - AC-12: Layout filtering hides nonmatching windows from both Studio views,
   and enabled move/resize snapping follows the selected grid while disabled or
   Alt-bypassed dragging remains unsnapped. Saving one section does not reset
@@ -206,6 +226,9 @@ renders the editor; it has no build step and no external network dependency.
   a local backup and no game write after rejecting symlinks, path escapes,
   oversized or empty files, and unstable reads, while the paired save action
   remains an explicit confirmed publish.
+- AC-15: The tracked `ui-bundle/plazmic-ui/` tree and release ZIP contain a
+  complete lint-clean skin and no character layout, user identifier, sidecar,
+  executable, symlink, local path, credential, or GPL relicensing claim.
 
 ## Resolved decisions
 
@@ -213,7 +236,8 @@ renders the editor; it has no build step and no external network dependency.
 - Visibility: public.
 - License: GPL-3.0-only, matching the source project's public licensing
   boundary while preserving independent ownership of this implementation.
-- Distribution: source plus Studio-only Linux and Windows executables; users
-  materialize all game UI files from their own installations.
+- Distribution: source, Studio-only Linux and Windows executables, and a
+  separate ready-to-install `plazmic-ui-bundle.zip` containing reviewed game UI
+  assets. The GPL applies only to original project code and documentation.
 - Studio dependencies: Python standard library plus static browser files.
 - Default canvas: 2560x1440 with an explicit configurable resolution.

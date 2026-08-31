@@ -2,19 +2,21 @@
 
 [![CI](https://github.com/ChrisTitusTech/plazmic-ui/actions/workflows/ci.yml/badge.svg)](https://github.com/ChrisTitusTech/plazmic-ui/actions/workflows/ci.yml)
 
-Plazmic UI is a public EverQuest Legends UI toolkit. It creates a local skin
-from files you already own, previews `UI_*.ini` window layouts in a browser
-Studio, validates EQ XML, and publishes changes with rollback backups. The full
-source workflow targets Linux; the Studio is also released as one-file Linux
-and Windows executables.
+Plazmic UI is a public EverQuest Legends UI bundle and editing toolkit. It
+includes a ready-to-install skin, previews `UI_*.ini` window layouts in a
+browser Studio, validates EQ XML, and publishes changes with rollback backups.
+The full source workflow targets Linux; the Studio is also released as one-file
+Linux and Windows executables.
 
-The repository contains no EverQuest executable, texture, map, user layout, or
-other Daybreak asset. All copied game files stay in ignored local workspaces.
+The reviewed `ui-bundle/plazmic-ui/` tree contains the game UI assets required
+by the skin. It contains no character layout, account data, character name,
+personal path, game executable, backup, or checksum sidecar.
 
 ## Features
 
 - Captures an installed `plazmic-ui` skin, or falls back to `default_modern`,
   plus one explicitly selected top-level layout.
+- Provides a complete `plazmic-ui/` skin for direct installation.
 - Builds a reviewed local derivative from `default_modern` without changing the
   shipped skin.
 - Shows window bounds and alpha on a configurable canvas, defaulting to
@@ -38,12 +40,25 @@ display proprietary textures, so the final visual check still happens in game.
 
 ## Download the Studio
 
-The [latest GitHub release](https://github.com/ChrisTitusTech/plazmic-ui/releases/latest)
-contains:
+Tagged releases provide:
 
 - `plazmic-ui-studio-linux-x86_64`;
 - `plazmic-ui-studio-windows-x86_64.exe`; and
-- `SHA256SUMS` for both files.
+- `plazmic-ui-bundle.zip` when repository owners have recorded the required
+  redistribution authorization; and
+- `SHA256SUMS` for every release asset.
+
+The current bundle is also available in
+[`ui-bundle/plazmic-ui`](ui-bundle/plazmic-ui). To install it, stop EverQuest,
+copy that entire `plazmic-ui/` directory into the game's `uifiles/` directory,
+then start the game and run:
+
+```text
+/loadskin plazmic-ui 1
+```
+
+The ZIP has the same `plazmic-ui/` root. Do not merge it into `default` or
+`default_modern`.
 
 On Linux:
 
@@ -62,9 +77,10 @@ On Windows PowerShell:
 .\plazmic-ui-studio-windows-x86_64.exe studio
 ```
 
-The binaries support `capture`, `studio`, and `publish`. They contain the
-Studio and its Python runtime, not any EverQuest assets. The Linux-only `sync`,
-format, lint, and offline install commands remain in the source workflow.
+The binaries support `capture`, `studio`, and `publish`. The separate Studio
+executables contain the Studio and its Python runtime, not EverQuest assets.
+The Linux-only `sync`, format, lint, and offline install commands remain in the
+source workflow.
 
 ## Source requirements
 
@@ -119,7 +135,13 @@ For a fresh reviewed derivative instead of capturing an installed skin:
 See the [user guide](docs/user-guide.md) for offline installation, live reload,
 backup restoration, resolution settings, and both workspace paths.
 
-## Safety and asset boundary
+## Privacy and asset boundary
+
+The distributable skin is tracked only under `ui-bundle/plazmic-ui/`. Bundle
+validation permits required XML, textures, cursors, and generic skin INIs while
+rejecting character `UI_*.ini` layouts, backups, checksum sidecars, symlinks,
+executables, local paths, credentials, and private workspace metadata.
+`ui-bundle/SHA256SUMS` pins the reviewed file inventory and exact asset bytes.
 
 Generated UI content stays under ignored `.plazmic-ui-workspace/`:
 
@@ -131,8 +153,10 @@ Generated UI content stays under ignored `.plazmic-ui-workspace/`:
 Local screenshots and validation evidence stay in the separate ignored
 `captures/` directory.
 
-Do not force-add, publish, package, or attach these files to an issue or
-release. The tool never changes `default` or `default_modern` in place.
+Do not force-add, publish, package, or attach private workspace files to an
+issue or release. Only reviewed asset changes under `ui-bundle/plazmic-ui/`
+belong in the public bundle. The tool never changes `default` or
+`default_modern` in place.
 
 Packaged binaries store the same private workspace under the user's local
 application-data directory. Set `PLAZMIC_UI_DATA_DIR` before running a binary
@@ -155,4 +179,5 @@ Game Company. EverQuest and its assets belong to their respective owners.
 
 Original Plazmic UI source is licensed under the
 [GNU General Public License v3.0 only](LICENSE). The license does not apply to
-EverQuest or Daybreak assets, which are not included.
+the bundled EverQuest or Daybreak assets, which remain the property of their
+respective owners. See [third-party notices](THIRD_PARTY_NOTICES.md).

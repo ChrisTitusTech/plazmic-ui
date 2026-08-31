@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import http.client
 import importlib.util
 import json
@@ -10,6 +11,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -31,6 +33,14 @@ lint_ui = load_module("lint_ui", ROOT / "ui-tools" / "lint-ui.py")
 format_xml = load_module("format_xml_tests", ROOT / "ui-tools" / "format_xml.py")
 ui_studio = load_module("ui_studio_tests", ROOT / "ui-tools" / "ui_studio.py")
 release_version = load_module("release_version_tests", ROOT / "tools" / "release_version.py")
+check_repository = load_module(
+    "check_repository_tests",
+    ROOT / "tools" / "check_repository.py",
+)
+verify_ui_bundle = load_module(
+    "verify_ui_bundle_tests",
+    ROOT / "tools" / "verify_ui_bundle.py",
+)
 verify_release_binary = load_module(
     "verify_release_binary_tests",
     ROOT / "tools" / "verify_release_binary.py",
@@ -89,6 +99,270 @@ class ApplyImprovementsTests(unittest.TestCase):
     def test_cleanup_refuses_unreviewed_shape(self) -> None:
         with self.assertRaisesRegex(ValueError, "depot tooltip correction"):
             apply_improvements.improve_advanced_loot("<XML />")
+
+
+class BundleTests(unittest.TestCase):
+    @staticmethod
+    def minimal_dds(payload: bytes = b"\x00") -> bytes:
+        header = bytearray(128)
+        header[:4] = b"DDS "
+        header[4:8] = (124).to_bytes(4, "little")
+        header[12:16] = (1).to_bytes(4, "little")
+        header[16:20] = (1).to_bytes(4, "little")
+        header[76:80] = (32).to_bytes(4, "little")
+        return bytes(header) + payload
+
+    @staticmethod
+    def write_manifest(bundle: Path) -> Path:
+        entries = []
+        for path in sorted(item for item in bundle.rglob("*") if item.is_file()):
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            relative = path.relative_to(bundle.parent).as_posix()
+            entries.append(f"{digest}  {relative}\n")
+        manifest = bundle.parent / "SHA256SUMS"
+        manifest.write_text("".join(entries), encoding="ascii")
+        return manifest
+
+    def test_verifier_accepts_skin_without_character_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            (bundle / "default1080.ini").write_text("[Defaults]\n", encoding="ascii")
+            self.write_manifest(bundle)
+
+            self.assertEqual(verify_ui_bundle.verify_bundle(bundle), 2)
+
+    def test_verifier_rejects_character_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            (bundle / "UI_character_server.ini").write_text(
+                "[Character]\n",
+                encoding="ascii",
+            )
+            self.write_manifest(bundle)
+
+            with self.assertRaisesRegex(ValueError, "character"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_verifier_rejects_inventory_change(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            removed = bundle / "settings.ini"
+            removed.write_text("[Defaults]\n", encoding="ascii")
+            self.write_manifest(bundle)
+            removed.unlink()
+
+            with self.assertRaisesRegex(ValueError, "inventory differs"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_verifier_rejects_windows_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            (bundle / "settings.ini").write_text(
+                "Install=C:" + "\\Users\\example\\EverQuest\n",
+                encoding="ascii",
+            )
+            self.write_manifest(bundle)
+
+            with self.assertRaisesRegex(ValueError, "Windows absolute path"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_verifier_rejects_invalid_asset_format(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            (bundle / "broken.dds").write_bytes(b"not a DDS file")
+            self.write_manifest(bundle)
+
+            with self.assertRaisesRegex(ValueError, "invalid DDS"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_verifier_rejects_truncated_dds_header(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            (bundle / "broken.dds").write_bytes(b"DDS " + (124).to_bytes(4, "little") + bytes(32))
+            self.write_manifest(bundle)
+
+            with self.assertRaisesRegex(ValueError, "invalid DDS"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_verifier_rejects_truncated_dds_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            contents = bytearray(self.minimal_dds())
+            contents[8:12] = (0x80000).to_bytes(4, "little")
+            contents[20:24] = (8).to_bytes(4, "little")
+            (bundle / "broken.dds").write_bytes(contents)
+            self.write_manifest(bundle)
+
+            with self.assertRaisesRegex(ValueError, "invalid DDS"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_verifier_rejects_truncated_cursor_header(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            (bundle / "broken.cur").write_bytes(b"\x00\x00\x02\x00")
+            self.write_manifest(bundle)
+
+            with self.assertRaisesRegex(ValueError, "invalid cursor"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_verifier_rejects_cursor_payload_out_of_bounds(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            entry = bytes((16, 16, 0, 0)) + bytes(4) + (8).to_bytes(4, "little")
+            entry += (22).to_bytes(4, "little")
+            (bundle / "broken.cur").write_bytes(b"\x00\x00\x02\x00\x01\x00" + entry)
+            self.write_manifest(bundle)
+
+            with self.assertRaisesRegex(ValueError, "invalid cursor"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_verifier_rejects_truncated_tga_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            header = bytearray(18)
+            header[2] = 2
+            header[12:14] = (1).to_bytes(2, "little")
+            header[14:16] = (1).to_bytes(2, "little")
+            header[16] = 32
+            (bundle / "broken.tga").write_bytes(header)
+            self.write_manifest(bundle)
+
+            with self.assertRaisesRegex(ValueError, "invalid TGA"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_verifier_rejects_path_embedded_in_binary_asset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            (bundle / "texture.dds").write_bytes(
+                self.minimal_dds(b"C:" + b"\\" + b"Users\\example\\EverQuest")
+            )
+            self.write_manifest(bundle)
+
+            with self.assertRaisesRegex(ValueError, "Windows absolute path"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_verifier_rejects_utf16le_sensitive_binary_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            sensitive = (b"/" + b"Users/example/EverQuest").decode().encode("utf-16le")
+            (bundle / "texture.dds").write_bytes(self.minimal_dds(sensitive))
+            self.write_manifest(bundle)
+
+            with self.assertRaisesRegex(ValueError, "absolute home path"):
+                verify_ui_bundle.verify_bundle(bundle)
+
+    def test_repository_patterns_reject_windows_and_unc_paths(self) -> None:
+        samples = (
+            b"C:" + b"\\" + b"Users\\example\\EverQuest",
+            b"\\" * 2 + b"server\\share\\EverQuest",
+            b"\\" * 2 + b"PC\\c$\\Users\\alice",
+        )
+        for sample in samples:
+            self.assertTrue(
+                any(
+                    pattern.search(sample)
+                    for pattern in check_repository.SENSITIVE_PATTERNS.values()
+                )
+            )
+
+    def test_repository_scan_rejects_windows_path_outside_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "notes.md").write_bytes(
+                b"Installed at C:" + b"\\" + b"Users\\example\\EverQuest\n"
+            )
+            with mock.patch.object(check_repository, "ROOT", root):
+                findings = check_repository.inspect_path(Path("notes.md"))
+
+            self.assertIn("possible Windows absolute path", findings)
+
+    def test_repository_scan_rejects_private_path_and_external_cursor(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "notes.md").write_bytes(b"Installed under /" + b"Users/example/EverQuest\n")
+            (root / "cursor.cur").write_bytes(b"\x00\x00\x02\x00")
+            with mock.patch.object(check_repository, "ROOT", root):
+                path_findings = check_repository.inspect_path(Path("notes.md"))
+                cursor_findings = check_repository.inspect_path(Path("cursor.cur"))
+
+            self.assertIn("possible absolute home path", path_findings)
+            self.assertIn(
+                "game, backup, checksum, or private file type is not allowed",
+                cursor_findings,
+            )
+
+    def test_repository_scan_rejects_utf16le_sensitive_text(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            sensitive = (b"/" + b"Users/example/EverQuest").decode().encode("utf-16le")
+            (root / "metadata.bin").write_bytes(sensitive)
+            with mock.patch.object(check_repository, "ROOT", root):
+                findings = check_repository.inspect_path(Path("metadata.bin"))
+
+            self.assertIn("possible absolute home path", findings)
+
+    def test_archive_verifier_matches_source_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            bundle_parent = root / "source"
+            bundle = bundle_parent / "plazmic-ui"
+            bundle.mkdir(parents=True)
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            archive = Path(shutil.make_archive(str(root / "bundle"), "zip", bundle_parent))
+
+            self.assertEqual(verify_ui_bundle.verify_archive(archive, bundle), 1)
+
+    def test_archive_verifier_rejects_changed_content(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            bundle_parent = root / "source"
+            bundle = bundle_parent / "plazmic-ui"
+            bundle.mkdir(parents=True)
+            manifest = bundle / "EQUI.xml"
+            manifest.write_text("<XML />", encoding="ascii")
+            archive = Path(shutil.make_archive(str(root / "bundle"), "zip", bundle_parent))
+            manifest.write_text("<XML changed='true' />", encoding="ascii")
+
+            with self.assertRaisesRegex(ValueError, "content differs"):
+                verify_ui_bundle.verify_archive(archive, bundle)
+
+    def test_archive_verifier_rejects_separator_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            bundle = root / "plazmic-ui"
+            bundle.mkdir()
+            (bundle / "EQUI.xml").write_text("<XML />", encoding="ascii")
+            archive = root / "bundle.zip"
+            with zipfile.ZipFile(archive, "w") as handle:
+                handle.writestr("plazmic-ui/EQUI.xml", "<XML />")
+                handle.writestr("plazmic-ui//EQUI.xml", "<XML />")
+
+            with self.assertRaisesRegex(ValueError, "duplicate paths"):
+                verify_ui_bundle.verify_archive(archive, bundle)
 
 
 class LintTests(unittest.TestCase):

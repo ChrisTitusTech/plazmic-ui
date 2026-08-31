@@ -12,9 +12,10 @@ not open a public issue for path traversal, arbitrary file access, token
 bypass, unsafe publish, or private-data exposure.
 
 Include the affected commit, operating system, Python version, a minimal
-synthetic reproduction, and impact. Never include real game assets, personal
-layouts, account data, credentials, character names, or an unredacted Wine
-path.
+synthetic reproduction, and impact. Do not include personal or locally modified
+game assets, layouts, account data, credentials, character names, or an
+unredacted Wine path. A report may point to an already tracked bundle file by
+repository path without reattaching it.
 
 ## Security boundary
 
@@ -36,7 +37,8 @@ File operations are deliberately narrow:
 
 Packaged Studio workspaces live under the current user's local application-data
 directory unless `PLAZMIC_UI_DATA_DIR` explicitly selects another root. Release
-binaries contain no game files or user data.
+binaries contain no game files or user data. The release UI bundle is a
+separate archive and contains no character layouts or user data.
 
 The project does not patch the game, inject code, automate gameplay, synthesize
 input, access credentials, or change gameplay state.

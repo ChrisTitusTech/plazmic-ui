@@ -2,15 +2,16 @@
 
 ## Purpose
 
-Plazmic UI is a public toolkit for building and editing a local EverQuest
-Legends UI. Its source workflow targets Linux, while GitHub releases package
-the browser Studio as one-file Linux and Windows executables.
-It copies UI source from the user's own game installation, previews and edits
-`UI_*.ini` layouts in a loopback-only browser Studio, validates EQ XML, and
-publishes explicit local changes with backups.
+Plazmic UI is a public EverQuest Legends UI bundle and editing toolkit. Its
+source workflow targets Linux, while GitHub releases package the browser Studio
+as one-file Linux and Windows executables and the skin as a separate ZIP.
+It includes a ready-to-install skin, can copy UI source from the user's own game
+installation, previews and edits `UI_*.ini` layouts in a loopback-only browser
+Studio, validates EQ XML, and publishes explicit local changes with backups.
 
-The repository never contains or distributes Daybreak assets, user layouts,
-game binaries, Wine-prefix content, account data, or character data.
+The reviewed `ui-bundle/plazmic-ui/` tree contains the distributable game UI
+assets. The repository never contains user layouts, game binaries, Wine-prefix
+content, account data, character data, or assets outside that approved bundle.
 
 ## Architecture
 
@@ -18,6 +19,8 @@ game binaries, Wine-prefix content, account data, or character data.
 - `ui-tools/`: POSIX shell and Python implementation for sync, capture,
   formatting, linting, Studio serving, install, and publish operations.
 - `ui-tools/studio/`: dependency-free HTML, CSS, and JavaScript browser client.
+- `ui-bundle/plazmic-ui/`: reviewed installable skin assets without character
+  layouts or user data.
 - `tests/`: synthetic unit and integration fixtures with no game content.
 - `docs/`: user workflow, architecture, development, and security guidance.
 - `.plazmic-ui-workspace/` contains the generated skin, layouts, backups, and
@@ -31,12 +34,14 @@ Windows. The Studio uses a current browser and binds only to `127.0.0.1`.
 
 - Read `SPEC.md`, `ROADMAP.md`, and `TASKS.md` before changing behavior.
 - Preserve unrelated user changes and local ignored workspaces.
-- Never commit or print private UI assets, personal `UI_*.ini` contents, game
-  paths, account data, character names, logs, crash dumps, or credentials.
-- Never ship files copied from `default`, `default_modern`, or another installed
-  Daybreak skin.
-- Release binaries may contain only project source, the static Studio frontend,
-  the Python runtime, and PyInstaller runtime components.
+- Never commit or print personal `UI_*.ini` contents, game paths, account data,
+  character names, logs, crash dumps, credentials, or unreviewed local assets.
+- Game assets may be tracked only under `ui-bundle/plazmic-ui/` after bundle,
+  privacy, provenance, and format validation. Never include top-level
+  `UI_*.ini`, checksum sidecars, backups, executables, or local metadata.
+- Studio binaries may contain only project source, the static Studio frontend,
+  the Python runtime, and PyInstaller runtime components. Ship the UI bundle as
+  a separate archive.
 - Do not modify `default` or `default_modern` in place.
 - Restrict writes to the local repository workspaces, `uifiles/plazmic-ui`, and
   one explicitly selected top-level `UI_*.ini`.
@@ -70,10 +75,12 @@ EQ_LEGENDS_DIR='/path/to/EverQuest Legends' ./plazmic-ui publish
 - Run ShellCheck and shfmt for every shell-script change.
 - Run Ruff, Python compilation, and unit tests for every Python change.
 - Run Markdownlint for documentation changes.
+- Validate the tracked bundle and its archive for character layouts, sidecars,
+  symlinks, executable bits, format errors, and sensitive path/token patterns.
 - Verify the browser Studio against synthetic or local ignored data and retain
   a screenshot under ignored `captures/` for visible changes.
-- Inspect the final status, diff, ignored-file boundary, executable bits, and
-  secret scan before committing.
+- Inspect the final status, diff, ignored-file boundary, executable bits,
+  bundled-asset boundary, and secret/privacy scan before committing.
 - Record skipped live game validation and residual risk explicitly.
 
 ## Documentation routing

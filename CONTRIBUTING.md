@@ -1,7 +1,8 @@
 # Contributing to Plazmic UI
 
-Thank you for improving Plazmic UI. Contributions should make local UI editing
-safer and clearer without weakening the asset, path, or publish boundaries.
+Thank you for improving Plazmic UI. Contributions should make the distributed
+skin or local UI editing safer and clearer without weakening the asset, privacy,
+path, or publish boundaries.
 
 ## Before opening an issue
 
@@ -10,19 +11,20 @@ safer and clearer without weakening the asset, path, or publish boundaries.
 - Confirm the problem occurs on current `main`.
 - Include your operating system, source or packaged version, browser family,
   game runner, command, and redacted error category.
-- Do not attach game assets, `UI_*.ini` files, Wine-prefix contents, character
-  names, account data, crash dumps, credentials, or absolute personal paths.
+- Do not attach local or unreviewed game assets, `UI_*.ini` files, Wine-prefix
+  contents, character names, account data, crash dumps, credentials, or
+  absolute personal paths. Reference an existing tracked bundle file by path.
 - Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## Scope
 
-In scope: capture, local materialization, layout/XML editing, validation,
-backups, safe publish, accessibility, documentation, Linux source
-compatibility, and Linux/Windows Studio packaging.
+In scope: the reviewed UI bundle, capture, local materialization, layout/XML
+editing, validation, backups, safe publish, accessibility, documentation, Linux
+source compatibility, and Linux/Windows Studio packaging.
 
-Out of scope: bundled game files, a proprietary-texture renderer, macOS
-packaging, binary patching, code injection, macros, gameplay automation,
-synthesized input, multibox control, and changes to gameplay state.
+Out of scope: character layouts or user data in the bundle, a proprietary-
+texture renderer, macOS packaging, binary patching, code injection, macros,
+gameplay automation, synthesized input, multibox control, and gameplay changes.
 
 ## Development workflow
 
@@ -40,8 +42,9 @@ synthesized input, multibox control, and changes to gameplay state.
 6. Include a screenshot for visible changes using only synthetic or redacted
    local data.
 
-Never run review services over ignored game files. A normal review should see
-only the public Git diff.
+Never run review services over ignored local game files. Reviewed bundle
+changes may be inspected from the public Git diff only after the privacy and
+repository hygiene gates pass.
 
 ## Style
 
@@ -56,4 +59,7 @@ only the public Git diff.
 ## License
 
 By contributing, you agree that your contribution is licensed under the
-project's [GNU General Public License v3.0 only](LICENSE).
+project's [GNU General Public License v3.0 only](LICENSE). This grant does not
+apply to any third-party asset. Third-party assets require documented
+provenance and express written redistribution authorization before inclusion in
+the bundle; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

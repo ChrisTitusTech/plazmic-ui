@@ -5,6 +5,22 @@ skipped live checks and residual risk rather than marking them complete.
 
 ## Current phase
 
+### B-01: Distribute the complete Plazmic UI skin
+
+- [x] Track the reviewed skin as `ui-bundle/plazmic-ui/`.
+- [x] Exclude character layouts, identifiers, local paths, sidecars,
+  executables, symlinks, credentials, and local provenance metadata.
+- [x] Add bundle validation and a separate release ZIP.
+- [x] Update the specification, ownership, installation, contribution, and
+  security boundaries.
+- [x] Pass the complete source, bundle, archive, privacy, and repository gates.
+- Acceptance criteria: AC-15 and the Phase 9 exit criteria.
+- Automated validation: bundle verifier, EQ XML lint, archive inventory,
+  byte-for-byte source comparison, repository hygiene, secret/privacy scan,
+  Markdownlint, Python checks, and `make check`.
+- Manual validation: install the ZIP's `plazmic-ui/` directory under `uifiles/`
+  and run `/loadskin plazmic-ui 1`, or record the skipped live check and risk.
+
 ### S-05: Stabilize centered saves and selection defaults
 
 - [x] Keep BagInv8 and other center-anchored windows position-stable across an
@@ -123,6 +139,13 @@ skipped live checks and residual risk rather than marking them complete.
 Local implementation, documentation, render, and validation are complete.
 Live `/loadskin` was deliberately skipped to avoid changing the running game;
 the remaining risk is that the mock canvas cannot prove in-game SIDL behavior.
+
+B-01 added 1,669 reviewed bundle files plus a SHA-256 inventory and verified
+release ZIP. The complete gate passed with 52 Python tests, 12 frontend tests,
+258 XML files, repository/privacy checks, exact archive comparison, and
+independent review. Live bundle loading was skipped to avoid changing game
+state; in-game rendering remains the residual risk. Release upload additionally
+requires the repository's authorized-manifest digest to match the exact bundle.
 All CodeRabbit findings from three completed review passes were addressed. A
 final confirmation pass was rate-limited, so the exact reviewed diff received
 the same local static, test, secret, whitespace, and clean-clone gates before

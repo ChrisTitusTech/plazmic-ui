@@ -1,5 +1,22 @@
 # User guide
 
+## Install the UI bundle
+
+Stop EverQuest before replacing a skin. Extract `plazmic-ui-bundle.zip` and
+copy its complete `plazmic-ui/` directory into the game's `uifiles/` directory.
+From a source checkout, copy `ui-bundle/plazmic-ui/` to the same destination.
+Do not merge the files into `default` or `default_modern`.
+
+Start EverQuest and load the skin:
+
+```text
+/loadskin plazmic-ui 1
+```
+
+The bundle contains no character `UI_*.ini`, so it does not change a
+character's saved window layout. The Studio workflow below can capture and edit
+one explicitly selected local layout when desired.
+
 ## Packaged Studio executables
 
 Release downloads provide a Linux x86-64 binary and a Windows x86-64 `.exe`.
@@ -214,10 +231,12 @@ use EverQuest's `/copylayout` interface to apply it, then reload the skin.
 
 | Path | Purpose | Public? |
 | --- | --- | --- |
+| `ui-bundle/plazmic-ui/` | Reviewed installable skin assets | Yes |
 | `.plazmic-ui-workspace/skin/` | Materialized skin and copied assets | No |
 | `.plazmic-ui-workspace/layouts/` | Selected personal layouts | No |
 | `.plazmic-ui-workspace/backups/` | Local Studio edit backups | No |
 | `.plazmic-ui-workspace/studio.json` | Local path, layout, and resolution | No |
 | `captures/` | Screenshots and local evidence | No |
 
-These paths are ignored. Do not force-add or upload them.
+The private workspace and capture paths are ignored. Do not force-add or upload
+them; only the reviewed `ui-bundle/plazmic-ui/` tree is public.

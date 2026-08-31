@@ -14,6 +14,10 @@
 - `studio/` is static HTML, CSS, and JavaScript with no build system or remote
   dependency.
 
+`ui-bundle/plazmic-ui/` is the separate, tracked, ready-to-install skin. Bundle
+validation allows required UI XML, textures, cursors, and generic INIs but
+rejects character layouts, sidecars, symlinks, executables, and private data.
+
 Release executables package `ui_studio.py`, `studio/`, a Python runtime, and
 PyInstaller runtime components into one file per target operating system. They
 do not package the POSIX shell tools or any materialized workspace. Frozen
@@ -33,10 +37,10 @@ EverQuest Legends installation
   +<----------- explicit staged publish and backups ------+
 ```
 
-No copied game file enters Git, CI, a package, an external review service, or
-an external network request. The browser Studio exchanges copied content only
-with its loopback server on `127.0.0.1`; that local traffic never leaves the
-host.
+The reviewed bundle enters Git, CI, and its dedicated release ZIP. Locally
+captured skins, personal layouts, paths, backups, and identifiers do not. The
+browser Studio exchanges local content only with its loopback server on
+`127.0.0.1`; that traffic never leaves the host.
 
 The top-right game-layout selector also supports a reverse layout-only flow.
 **Load from game** reads one selected top-level `UI_*.ini`, verifies that it
@@ -45,7 +49,8 @@ replaces only that ignored local file. It never writes to the game.
 
 Release CI builds on Linux and Windows separately, runs the synthetic test
 suite, verifies the executable format and version, and asks the executable to
-validate its embedded frontend before it can become a release asset.
+validate its embedded frontend before it can become a release asset. It also
+validates and archives the tracked skin with `plazmic-ui/` as the ZIP root.
 
 ## INI model
 

@@ -302,3 +302,48 @@ multi-window selection.
 
 Revert the frontend model, controls, and documentation. Layout files require
 no migration because the change uses the existing atomic save format.
+
+## Phase 9: Distributable EverQuest UI bundle
+
+### Outcome
+
+Players can install the complete Plazmic UI skin directly from the repository
+or a release ZIP without copying `default_modern`, while personal layouts and
+character identifiers remain excluded.
+
+### Included work
+
+- Track the reviewed skin under `ui-bundle/plazmic-ui/`.
+- Add bundle-specific privacy, file-type, lint, and archive validation.
+- Publish `plazmic-ui-bundle.zip` separately from the Studio executables.
+- Update ownership, provenance, installation, contribution, and security docs.
+
+### Dependencies and risks
+
+- Bundled game UI assets retain their third-party ownership and are not covered
+  by the project's GPL license.
+- Binary texture review cannot prove visual behavior; validation relies on the
+  known source, strict inventory, XML lint, and in-game testing.
+- The repository and CI checkout become substantially larger.
+
+### Exit criteria
+
+- AC-15 passes and no `UI_*.ini`, personal identifier, local path, sidecar,
+  executable, symlink, or credential is present in the bundle.
+- The generated archive has `plazmic-ui/` as its root and passes the same bundle
+  verification as the tracked tree.
+- The complete source gate passes on the exact committed asset set.
+
+### Validation
+
+- Compare the tracked tree byte-for-byte with the approved local skin while
+  excluding only local metadata.
+- Run bundle verification, XML formatting/lint, repository hygiene, secret and
+  privacy scans, `make check`, and archive structure inspection.
+- Record live `/loadskin plazmic-ui 1` validation separately when available.
+
+### Rollback
+
+Remove the bundle tree and release-archive step while retaining the Studio and
+local materialization workflow. Remove any affected public artifact immediately
+if private data is discovered.

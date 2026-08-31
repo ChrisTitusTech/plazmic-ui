@@ -25,7 +25,8 @@ body:
       label: Scope confirmation
       options:
         - label: >-
-            This does not require bundled Daybreak assets or personal layouts.
+            This does not add unreviewed or unauthorized game assets, personal
+            layouts, or user data to the UI bundle.
           required: true
         - label: >-
             This does not add injection, binary patching, or gameplay

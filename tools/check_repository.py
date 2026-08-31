@@ -18,10 +18,19 @@ PRIVATE_ROOTS = {
     "ui-backups",
     "ui-layouts",
 }
+BUNDLE_ROOT = Path("ui-bundle/plazmic-ui")
+BUNDLE_SUFFIXES = {
+    ".cur",
+    ".dds",
+    ".ini",
+    ".tga",
+    ".xml",
+}
 FORBIDDEN_SUFFIXES = {
     ".bak",
     ".bmp",
     ".crc",
+    ".cur",
     ".dds",
     ".dll",
     ".dmp",
@@ -45,11 +54,20 @@ ALLOWED_EXECUTABLES = {
     Path("ui-tools/sync-ui.sh"),
 }
 SENSITIVE_PATTERNS = {
-    "absolute home path": re.compile(rb"/home/[A-Za-z0-9._-]+/"),
+    "absolute home path": re.compile(rb"/(?:home|Users)/[A-Za-z0-9._-]+/"),
     "Wine user path": re.compile(rb"drive_c/users/[A-Za-z0-9._-]+", re.IGNORECASE),
+    "Windows absolute path": re.compile(
+        rb"\b[A-Za-z]:[\\/](?:[A-Za-z0-9._ -]{2,}[\\/]){1,}[A-Za-z0-9._ -]{2,}"
+    ),
+    "Windows UNC path": re.compile(
+        rb"\\\\[A-Za-z0-9._-]+\\[A-Za-z0-9$._-]+\\(?:Users|[A-Za-z0-9 ._-]{8,})"
+    ),
     "GitHub token": re.compile(rb"(?:gh[opsur]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})"),
     "private key": re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
 }
+PUBLIC_PATH_PLACEHOLDERS = (rb"C:\Path\To\EverQuest Legends",)
+ASCII_TEXT = re.compile(rb"[\x20-\x7e]{4,}")
+UTF16LE_TEXT = re.compile(rb"(?:[\x20-\x7e]\x00){4,}")
 MAX_PUBLIC_FILE_SIZE = 2 * 1024 * 1024
 
 
@@ -80,6 +98,16 @@ def private_path(path: Path) -> bool:
     )
 
 
+def bundle_path(path: Path) -> bool:
+    return path == BUNDLE_ROOT or BUNDLE_ROOT in path.parents
+
+
+def embedded_text(contents: bytes) -> bytes:
+    runs = ASCII_TEXT.findall(contents)
+    runs.extend(run[::2] for run in UTF16LE_TEXT.findall(contents))
+    return b"\n".join(runs)
+
+
 def inspect_path(relative: Path) -> list[str]:
     findings: list[str] = []
     path = ROOT / relative
@@ -92,7 +120,15 @@ def inspect_path(relative: Path) -> list[str]:
     if not path.is_file():
         findings.append("repository entry is not a regular file")
         return findings
-    if path.name.endswith(":crc") or path.suffix.lower() in FORBIDDEN_SUFFIXES:
+    if bundle_path(relative):
+        lower_name = path.name.lower()
+        if lower_name.startswith("ui_") and lower_name.endswith(".ini"):
+            findings.append("character layout is not allowed in the public UI bundle")
+        if path.name.endswith(":crc") or path.suffix.lower() in {".bak", ".crc"}:
+            findings.append("backup or checksum sidecar is not allowed in the UI bundle")
+        if path.suffix.lower() not in BUNDLE_SUFFIXES:
+            findings.append("unexpected UI bundle file type")
+    elif path.name.endswith(":crc") or path.suffix.lower() in FORBIDDEN_SUFFIXES:
         findings.append("game, backup, checksum, or private file type is not allowed")
     size = path.stat().st_size
     if size > MAX_PUBLIC_FILE_SIZE:
@@ -104,8 +140,11 @@ def inspect_path(relative: Path) -> list[str]:
         findings.append("required executable bit is missing")
     if size <= MAX_PUBLIC_FILE_SIZE:
         contents = path.read_bytes()
+        for placeholder in PUBLIC_PATH_PLACEHOLDERS:
+            contents = contents.replace(placeholder, b"")
+        text_contents = embedded_text(contents)
         for label, pattern in SENSITIVE_PATTERNS.items():
-            if pattern.search(contents):
+            if pattern.search(text_contents):
                 findings.append(f"possible {label}")
     return findings
 
